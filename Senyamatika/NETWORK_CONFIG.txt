@@ -4,8 +4,8 @@ SenyaMatika Network Configuration
 Generated: Sat 03/14/2026  9:09:27.67
 
 Local IP: 192.168.1.138
-Backend URL: http://192.168.1.138:3000/api
-Health Check: http://192.168.1.138:3000/health
+Backend URL: https://senyamtikaback-production.up.railway.app/api
+Health Check: https://senyamtikaback-production.up.railway.app/health
 
 Flutter Configuration:
   File: lib\backend\network_config.dart
@@ -17,5 +17,5 @@ Start Backend:
   npm start
 
 Test Connection:
-  curl http://192.168.1.138:3000/health
+  curl https://senyamtikaback-production.up.railway.app/health
 

@@ -3,6 +3,6 @@
 
 class NetworkConfig {
   static const String localIP = '192.168.1.138';
-  static const String backendUrl = 'http://192.168.1.138:3000/api';
-  static const String healthUrl = 'http://192.168.1.138:3000/health';
+  static const String backendUrl = 'https://senyamtikaback-production.up.railway.app/api';
+  static const String healthUrl = 'https://senyamtikaback-production.up.railway.app/health';
 }

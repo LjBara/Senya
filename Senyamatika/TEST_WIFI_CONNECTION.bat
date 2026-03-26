@@ -59,7 +59,7 @@ echo ========================================
 echo.
 echo Next steps:
 echo 1. Make sure your phone is on the same WiFi
-echo 2. Open phone browser and test: http://192.168.1.138:3000/health
+echo 2. Open phone browser and test: https://senyamtikaback-production.up.railway.app/health
 echo 3. If browser test works, install and run the APK
 echo.
 echo If phone can't connect:

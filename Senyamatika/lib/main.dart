@@ -2891,8 +2891,7 @@ class _FrontPageScreenState extends State<FrontPageScreen>
   // Function to launch Senyamatikard website
   // Update the IP address below to match your computer's WiFi IP
   Future<void> _launchSenyamatikard() async {
-    final Uri url = Uri.parse('http://localhost:5173/');
-    
+    final Uri url = Uri.parse('https://senyamatikard.vercel.app/');
     try {
       if (await canLaunchUrl(url)) {
         await launchUrl(
@@ -3494,6 +3493,7 @@ class _FrontPageScreenState extends State<FrontPageScreen>
   }
 }
 
+
 // ============ CREATE ACCOUNT SCREEN ============
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});
@@ -3508,30 +3508,61 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _otherSchoolController = TextEditingController();
+  final TextEditingController _otherGradeController = TextEditingController();
+  final TextEditingController _sectionController = TextEditingController();
   final LocalAuthService _authService = LocalAuthService();
 
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
-  
-  // List of schools
+
   final List<String> _schools = [
+    'None',
     'San Miguel National HighSchool',
     'Bajet-Castillo High School',
-    'Pulong Buhangin National High School'
+    'Pulong Buhangin National High School',
+    'Others',
   ];
-  
-  // List of sections (Grade 7-10)
-  final List<String> _sections = [
+
+  final List<String> _gradeOptions = [
     'Grade 7',
     'Grade 8',
     'Grade 9',
     'Grade 10',
     'Non-graded',
+    'Others',
   ];
-  
+
   String? _selectedSchool;
-  String? _selectedSection;
+  String? _selectedGrade;
+
+  String? get _finalSchool {
+    if (_selectedSchool == 'Others') {
+      final typed = _otherSchoolController.text.trim();
+      return typed.isEmpty ? null : typed;
+    }
+    return _selectedSchool;
+  }
+
+  String? get _finalSection {
+    final grade = _selectedGrade;
+    final classSection = _sectionController.text.trim();
+
+    String? actualGrade;
+    if (grade == 'Others') {
+      final typed = _otherGradeController.text.trim();
+      actualGrade = typed.isEmpty ? null : typed;
+    } else {
+      actualGrade = grade;
+    }
+
+    if (actualGrade == null) return null;
+    if (classSection.isNotEmpty && classSection != 'None') {
+      return '$actualGrade - $classSection';
+    }
+    return actualGrade;
+  }
 
   Future<void> _createAccount() async {
     final firstName = _firstNameController.text.trim();
@@ -3539,139 +3570,67 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
-    final school = _selectedSchool;
-    final section = _selectedSection;
+    final school = _finalSchool;
+    final section = _finalSection;
 
-    // Validation for all fields
     if (firstName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please enter your first name',
-            style: TextStyle(fontFamily: 'Poppins-Regular'),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackbar('Please enter your first name', Colors.red);
       return;
     }
-
     if (lastName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please enter your last name',
-            style: TextStyle(fontFamily: 'Poppins-Regular'),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackbar('Please enter your last name', Colors.red);
       return;
     }
-
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please enter your email',
-            style: TextStyle(fontFamily: 'Poppins-Regular'),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackbar('Please enter your email', Colors.red);
       return;
     }
-
-    // Validation para siguraduhing may @gmail.com ang email
     if (!email.endsWith('@gmail.com')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please use a valid Gmail address (@gmail.com)',
-            style: TextStyle(fontFamily: 'Poppins-Regular'),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackbar('Please use a valid Gmail address (@gmail.com)', Colors.red);
       return;
     }
-
     if (password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please enter a password',
-            style: TextStyle(fontFamily: 'Poppins-Regular'),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackbar('Please enter a password', Colors.red);
       return;
     }
-
     if (password.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Password must be at least 6 characters',
-            style: TextStyle(fontFamily: 'Poppins-Regular'),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackbar('Password must be at least 6 characters', Colors.red);
       return;
     }
-
     if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Passwords do not match',
-            style: TextStyle(fontFamily: 'Poppins-Regular'),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackbar('Passwords do not match', Colors.red);
+      return;
+    }
+    if (_selectedSchool == null) {
+      _showSnackbar('Please select your school', Colors.red);
+      return;
+    }
+    if (_selectedSchool == 'Others' &&
+        _otherSchoolController.text.trim().isEmpty) {
+      _showSnackbar('Please enter your school name', Colors.red);
+      return;
+    }
+    if (_selectedGrade == null) {
+      _showSnackbar('Please select your Grade Level', Colors.red);
+      return;
+    }
+    if (_selectedGrade == 'Others' &&
+        _otherGradeController.text.trim().isEmpty) {
+      _showSnackbar('Please enter your grade level', Colors.red);
+      return;
+    }
+    if (_sectionController.text.trim().isEmpty) {
+      _showSnackbar(
+          'Please enter your Class / Section (type "None" if not applicable)',
+          Colors.red);
       return;
     }
 
-    if (school == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please select your school',
-            style: TextStyle(fontFamily: 'Poppins-Regular'),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (section == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please select your Grade Level',
-            style: TextStyle(fontFamily: 'Poppins-Regular'),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    // Show loading
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // Register user in database
       final fullName = '$firstName $lastName';
-      
-      // Use local storage for registration
-      // Note: Students authenticate via student ID provided by teacher, not email/password
+
       final user = await _authService.registerWithEmail(
         email: email,
         password: password,
@@ -3681,7 +3640,26 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       );
 
       if (user != null) {
-        // Save user data in provider
+        // Sync to Railway backend
+       try {
+          final sectionOnly = _sectionController.text.trim();
+          final gradeOnly = _selectedGrade == 'Others'
+              ? _otherGradeController.text.trim()
+              : _selectedGrade ?? '';
+          final schoolFinal = _selectedSchool == 'Others'
+              ? _otherSchoolController.text.trim()
+              : _selectedSchool ?? '';
+          await ApiService.register(
+            email: email,
+            password: password,
+            name: fullName,
+            school: schoolFinal,
+            section: '$gradeOnly - $sectionOnly',
+          );
+        } catch (e) {
+          print('Backend sync error: $e');
+        }
+
         UserProvider.setUser(UserData(
           name: fullName,
           email: email,
@@ -3689,26 +3667,17 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           section: section,
         ));
 
-        // Set current user for progress tracking
         progressManager.setCurrentUser(user.uid);
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Account created successfully!',
-                style: TextStyle(fontFamily: 'Poppins-Regular', fontWeight: FontWeight.bold),
-              ),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          _showSnackbar('Account created successfully!', Colors.green);
 
           Future.delayed(const Duration(milliseconds: 1500), () {
             if (mounted) {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const DashboardScreen()),
+                MaterialPageRoute(
+                    builder: (context) => const DashboardScreen()),
               );
             }
           });
@@ -3716,32 +3685,35 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              e.toString().replaceAll('Exception: ', ''),
-              style: TextStyle(fontFamily: 'Poppins-Regular'),
-            ),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
+        setState(() => _isLoading = false);
+        _showSnackbar(
+          e.toString().replaceAll('Exception: ', ''),
+          Colors.red,
         );
       }
     }
   }
 
+  void _showSnackbar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(fontFamily: 'Poppins-Regular'),
+        ),
+        backgroundColor: color,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // White background
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Stack(
           children: [
-            // Background decorative elements
             Positioned(
               top: -50,
               right: -50,
@@ -3766,13 +3738,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 ),
               ),
             ),
-            
+
             SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Back button at top left
                   Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -3785,8 +3756,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  
-                  // Welcome text - CENTERED
+
                   Center(
                     child: Text(
                       'Welcome to SenyaMatika!',
@@ -3798,47 +3768,35 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       ),
                     ),
                   ),
-                  
                   const SizedBox(height: 30),
-                  
-                  // Container para sa Create Account text at Image
-                  SizedBox(
-                    width: double.infinity,
-                    child: Stack(
-                      children: [
-                        // "Create Account" title - NASA LEFT SIDE
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Create',
-                              style: TextStyle(
-                                fontSize: 42,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Lora-Regular',
-                                color: Colors.black,
-                                height: 0.9,
-                              ),
-                            ),
-                            Text(
-                              'Account',
-                              style: TextStyle(
-                                fontSize: 42,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Lora-Regular',
-                                color: Colors.black,
-                                height: 0.9,
-                              ),
-                            ),
-                          ],
+
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Create',
+                        style: TextStyle(
+                          fontSize: 42,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Lora-Regular',
+                          color: Colors.black,
+                          height: 0.9,
                         ),
-                      ],
-                    ),
+                      ),
+                      Text(
+                        'Account',
+                        style: TextStyle(
+                          fontSize: 42,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Lora-Regular',
+                          color: Colors.black,
+                          height: 0.9,
+                        ),
+                      ),
+                    ],
                   ),
-                  
-                  const SizedBox(height: 30), // Space para sa box
-                  
-                  // Create Account card (BOX NA KULAY B0BDC1)
+                  const SizedBox(height: 30),
+
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(25),
@@ -3857,27 +3815,26 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // First Name field
                         _buildTextField(
                           controller: _firstNameController,
                           label: 'First Name:',
                           hintText: 'Enter your first name',
                           prefixIcon: Icons.person,
+                          textCapitalization: TextCapitalization.words,
                         ),
                         const SizedBox(height: 20),
-                        
-                        // Last Name field
+
                         _buildTextField(
                           controller: _lastNameController,
                           label: 'Last Name:',
                           hintText: 'Enter your last name',
                           prefixIcon: Icons.person_outline,
+                          textCapitalization: TextCapitalization.words,
                         ),
                         const SizedBox(height: 20),
-                        
-                        // Select School dropdown
+
                         _buildDropdownField(
-                          label: 'Select your school:',
+                          label: 'School:',
                           hintText: 'Choose your school',
                           prefixIcon: Icons.school,
                           value: _selectedSchool,
@@ -3886,42 +3843,80 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                               value: school,
                               child: Text(
                                 school,
-                                style: TextStyle(fontFamily: 'Poppins-Regular'),
+                                style: const TextStyle(
+                                    fontFamily: 'Poppins-Regular'),
                               ),
                             );
                           }).toList(),
                           onChanged: (value) {
                             setState(() {
                               _selectedSchool = value;
+                              if (value != 'Others') {
+                                _otherSchoolController.clear();
+                              }
                             });
                           },
                         ),
+
+                        if (_selectedSchool == 'Others') ...[
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                            controller: _otherSchoolController,
+                            label: 'Enter your school name:',
+                            hintText: 'Type your school name here',
+                            prefixIcon: Icons.edit_location_alt,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                        ],
                         const SizedBox(height: 20),
-                        
-                        // Select Section dropdown
+
                         _buildDropdownField(
                           label: 'Grade Level:',
                           hintText: 'Choose your grade level',
                           prefixIcon: Icons.group,
-                          value: _selectedSection,
-                          items: _sections.map((section) {
+                          value: _selectedGrade,
+                          items: _gradeOptions.map((grade) {
                             return DropdownMenuItem<String>(
-                              value: section,
+                              value: grade,
                               child: Text(
-                                section,
-                                style: TextStyle(fontFamily: 'Poppins-Regular'),
+                                grade,
+                                style: const TextStyle(
+                                    fontFamily: 'Poppins-Regular'),
                               ),
                             );
                           }).toList(),
                           onChanged: (value) {
                             setState(() {
-                              _selectedSection = value;
+                              _selectedGrade = value;
+                              if (value != 'Others') {
+                                _otherGradeController.clear();
+                              }
                             });
                           },
                         ),
+
+                        if (_selectedGrade == 'Others') ...[
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                            controller: _otherGradeController,
+                            label: 'Enter your grade level:',
+                            hintText: 'Type your grade level here',
+                            prefixIcon: Icons.edit,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                        ],
                         const SizedBox(height: 20),
-                        
-                        // Email field
+
+                        _buildTextField(
+                          controller: _sectionController,
+                          label: 'Class / Section:',
+                          hintText:
+                              'e.g. Sampaguita, Section A — type "None" if not applicable',
+                          prefixIcon: Icons.class_,
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 20),
+
                         _buildTextField(
                           controller: _emailController,
                           label: 'Email:',
@@ -3930,36 +3925,31 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           keyboardType: TextInputType.emailAddress,
                         ),
                         const SizedBox(height: 20),
-                        
-                        // Password field
+
                         _buildPasswordField(
                           controller: _passwordController,
                           label: 'Password:',
                           hintText: 'Enter your password',
                           isPasswordVisible: _isPasswordVisible,
                           onToggleVisibility: () {
-                            setState(() {
-                              _isPasswordVisible = !_isPasswordVisible;
-                            });
+                            setState(() =>
+                                _isPasswordVisible = !_isPasswordVisible);
                           },
                         ),
                         const SizedBox(height: 20),
-                        
-                        // Confirm Password field
+
                         _buildPasswordField(
                           controller: _confirmPasswordController,
                           label: 'Confirm Password:',
                           hintText: 'Confirm your password',
                           isPasswordVisible: _isConfirmPasswordVisible,
                           onToggleVisibility: () {
-                            setState(() {
-                              _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                            });
+                            setState(() => _isConfirmPasswordVisible =
+                                !_isConfirmPasswordVisible);
                           },
                         ),
                         const SizedBox(height: 35),
-                        
-                        // Create Button
+
                         SizedBox(
                           width: double.infinity,
                           height: 55,
@@ -3970,9 +3960,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 side: const BorderSide(
-                                  color: Colors.black,
-                                  width: 2,
-                                ),
+                                    color: Colors.black, width: 2),
                               ),
                               elevation: 5,
                               shadowColor: Colors.black.withOpacity(0.2),
@@ -3984,7 +3972,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                     width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                      valueColor:
+                                          AlwaysStoppedAnimation<Color>(
+                                              Colors.black),
                                     ),
                                   )
                                 : Text(
@@ -3997,12 +3987,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                   ),
                           ),
                         ),
-                        
                         const SizedBox(height: 40),
                       ],
                     ),
                   ),
-                  
                   const SizedBox(height: 40),
                 ],
               ),
@@ -4019,13 +4007,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     required String hintText,
     required IconData prefixIcon,
     TextInputType keyboardType = TextInputType.text,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
             fontFamily: 'Lora-Regular',
@@ -4037,10 +4026,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFF8F8F8),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.black,
-              width: 1,
-            ),
+            border: Border.all(color: Colors.black, width: 1),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
@@ -4052,19 +4038,19 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
+            textCapitalization: textCapitalization,
             decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
               hintText: hintText,
               hintStyle: TextStyle(
-                fontFamily: 'Poppins-Regular',
-                color: Colors.grey[600],
-              ),
+                  fontFamily: 'Poppins-Regular', color: Colors.grey[600]),
               border: InputBorder.none,
               prefixIcon: Icon(prefixIcon, color: Colors.black),
               filled: true,
               fillColor: Colors.transparent,
             ),
-            style: TextStyle(
+            style: const TextStyle(
               fontFamily: 'Poppins-Regular',
               fontSize: 16,
               color: Colors.black,
@@ -4088,7 +4074,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
             fontFamily: 'Lora-Regular',
@@ -4100,10 +4086,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFF8F8F8),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.black,
-              width: 1,
-            ),
+            border: Border.all(color: Colors.black, width: 1),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
@@ -4122,15 +4105,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   child: Text(
                     hintText,
                     style: TextStyle(
-                      fontFamily: 'Poppins-Regular',
-                      color: Colors.grey[600],
-                    ),
+                        fontFamily: 'Poppins-Regular',
+                        color: Colors.grey[600]),
                   ),
                 ),
                 icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
                 iconSize: 30,
                 isExpanded: true,
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'Poppins-Regular',
                   fontSize: 16,
                   color: Colors.black,
@@ -4157,7 +4139,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
             fontFamily: 'Lora-Regular',
@@ -4169,10 +4151,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFF8F8F8),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.black,
-              width: 1,
-            ),
+            border: Border.all(color: Colors.black, width: 1),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
@@ -4185,12 +4164,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             controller: controller,
             obscureText: !isPasswordVisible,
             decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
               hintText: hintText,
               hintStyle: TextStyle(
-                fontFamily: 'Poppins-Regular',
-                color: Colors.grey[600],
-              ),
+                  fontFamily: 'Poppins-Regular', color: Colors.grey[600]),
               border: InputBorder.none,
               prefixIcon: const Icon(Icons.lock, color: Colors.black),
               suffixIcon: IconButton(
@@ -4203,7 +4181,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               filled: true,
               fillColor: Colors.transparent,
             ),
-            style: TextStyle(
+            style: const TextStyle(
               fontFamily: 'Poppins-Regular',
               fontSize: 16,
               color: Colors.black,
@@ -4734,7 +4712,6 @@ class _LogInScreenState extends State<LogInScreen> {
 
 
 // ============ PROFILE SCREEN ============
-// ============ PROFILE SCREEN ============
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -4780,14 +4757,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: Colors.black,
                       ),
                     ),
-                    // Removed the blue profile icon button from here
-                    Container(width: 48), // Empty container to maintain spacing
+                    Container(width: 48),
                   ],
                 ),
               ),
-              
+
               const Divider(height: 1, color: Colors.grey),
-              
+
               // User Info
               Expanded(
                 child: SingleChildScrollView(
@@ -4831,14 +4807,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           color: Colors.grey[700],
                         ),
                       ),
-                      
+
                       // School and Section Info
                       if (UserProvider.getUserSchool() != null)
                         Column(
                           children: [
                             const SizedBox(height: 15),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 10),
                               decoration: BoxDecoration(
                                 color: Colors.blue[50],
                                 borderRadius: BorderRadius.circular(10),
@@ -4871,10 +4848,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
-                      
+
                       const SizedBox(height: 40),
-                      
-                      // Edit Profile Button
+
+                      // Edit Profile Button — FIXED: .then() forces rebuild
                       Container(
                         width: double.infinity,
                         margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -4884,7 +4861,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             foregroundColor: Colors.black,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: const BorderSide(color: Colors.black, width: 2),
+                              side: const BorderSide(
+                                  color: Colors.black, width: 2),
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             elevation: 5,
@@ -4892,8 +4870,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onPressed: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const EditProfileScreen()),
-                            );
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      const EditProfileScreen()),
+                            ).then((_) {
+                              // Force ProfileScreen to rebuild so new
+                              // name / school / section show immediately
+                              if (mounted) setState(() {});
+                            });
                           },
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -4912,17 +4896,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 40),
-                      
-                      // Other Profile Info
+
+                      // Account Information Card
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
                           color: Colors.grey[50],
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300, width: 1),
+                          border: Border.all(
+                              color: Colors.grey.shade300, width: 1),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -4937,23 +4922,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             const SizedBox(height: 10),
-                            _buildInfoRow('Full Name:', UserProvider.getUserName()),
+                            _buildInfoRow(
+                                'Full Name:', UserProvider.getUserName()),
                             const SizedBox(height: 8),
-                            _buildInfoRow('Email:', UserProvider.getUserEmail()),
-                            if (UserProvider.getUserSchool() != null)
+                            _buildInfoRow(
+                                'Email:', UserProvider.getUserEmail()),
+                            if (UserProvider.getUserSchool() != null) ...[
                               const SizedBox(height: 8),
-                            if (UserProvider.getUserSchool() != null)
-                              _buildInfoRow('School:', UserProvider.getUserSchool()!),
-                            if (UserProvider.getUserSection() != null)
+                              _buildInfoRow('School:',
+                                  UserProvider.getUserSchool()!),
+                            ],
+                            if (UserProvider.getUserSection() != null) ...[
                               const SizedBox(height: 8),
-                            if (UserProvider.getUserSection() != null)
-                              _buildInfoRow('Grade level:', UserProvider.getUserSection()!),
+                              _buildInfoRow('Grade level:',
+                                  UserProvider.getUserSection()!),
+                            ],
                           ],
                         ),
                       ),
-                      
-                      // REMOVED THE ENTIRE LEARNING PROGRESS SECTION
-                      
+
                       const SizedBox(height: 50),
                     ],
                   ),
@@ -4962,7 +4949,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
 
-          // Right Side Drawer (Overlay)
+          // Overlay when drawer is open
           if (_isDrawerOpen)
             GestureDetector(
               onTap: _toggleDrawer,
@@ -4971,7 +4958,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-          // Drawer Content (Slides from right)
+          // Side Drawer
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
@@ -4983,7 +4970,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: Colors.white,
               child: Column(
                 children: [
-                  // Drawer Header
                   Container(
                     height: 120,
                     width: double.infinity,
@@ -5013,13 +4999,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                   ),
-
-                  // Drawer Menu Items
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.all(20),
                       children: [
-                        // EDIT PROFILE OPTION
                         _buildDrawerMenuItem(
                           title: 'Edit Profile',
                           icon: Icons.edit,
@@ -5027,12 +5010,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _toggleDrawer();
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const EditProfileScreen()),
-                            );
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      const EditProfileScreen()),
+                            ).then((_) {
+                              if (mounted) setState(() {});
+                            });
                           },
                         ),
                         const SizedBox(height: 15),
-                        
                         _buildDrawerMenuItem(
                           title: 'Settings',
                           icon: Icons.settings,
@@ -5040,7 +5026,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _toggleDrawer();
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      const SettingsScreen()),
                             );
                           },
                         ),
@@ -5052,7 +5040,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _toggleDrawer();
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const HelpScreen()),
+                              MaterialPageRoute(
+                                  builder: (context) => const HelpScreen()),
                             );
                           },
                         ),
@@ -5064,21 +5053,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _toggleDrawer();
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const AboutScreen()),
+                              MaterialPageRoute(
+                                  builder: (context) => const AboutScreen()),
                             );
                           },
                         ),
                         const SizedBox(height: 30),
                         const Divider(color: Colors.grey),
                         const SizedBox(height: 30),
-                        
-                        // Log Out Button
                         _buildLogOutButton(context),
                       ],
                     ),
                   ),
-
-                  // Close Button
                   Container(
                     padding: const EdgeInsets.all(20),
                     child: IconButton(
@@ -5139,11 +5125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: Row(
             children: [
-              Icon(
-                icon,
-                color: Colors.black,
-                size: 24,
-              ),
+              Icon(icon, color: Colors.black, size: 24),
               const SizedBox(width: 15),
               Text(
                 title,
@@ -5167,13 +5149,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: InkWell(
         onTap: () {
           _toggleDrawer();
-          
-          // Clear user data on sign out
           UserProvider.setUser(UserData(name: '', email: ''));
-          
-          // Clear progress manager user (saves progress before clearing)
           progressManager.setCurrentUser(null);
-          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -5188,12 +5165,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               duration: const Duration(seconds: 2),
             ),
           );
-
           Future.delayed(const Duration(milliseconds: 1500), () {
             if (!context.mounted) return;
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => const FrontPageScreen()),
+              MaterialPageRoute(
+                  builder: (context) => const FrontPageScreen()),
               (route) => false,
             );
           });
@@ -5208,11 +5185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.logout,
-                color: Colors.red.shade700,
-                size: 24,
-              ),
+              Icon(Icons.logout, color: Colors.red.shade700, size: 24),
               const SizedBox(width: 15),
               Text(
                 'Logout',
@@ -5231,7 +5204,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// ============ FIXED EDIT PROFILE SCREEN - NO DUPLICATE VALUES ============
+
+// ============ FIXED EDIT PROFILE SCREEN ============
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -5241,33 +5215,64 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController _firstNameController = TextEditingController();
-  final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _lastNameController  = TextEditingController();
+  final TextEditingController _emailController     = TextEditingController();
+  final TextEditingController _passwordController  = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _otherSchoolController = TextEditingController();
+  final TextEditingController _otherGradeController = TextEditingController();
+  final TextEditingController _sectionController = TextEditingController();
 
-  bool _isPasswordVisible = false;
+  bool _isPasswordVisible        = false;
   bool _isConfirmPasswordVisible = false;
-  bool _isLoading = false;
-  
-  // FIXED: Removed duplicate values - each value is unique now
+  bool _isLoading                = false;
+
   final List<String> _schools = [
+    'None',
     'San Miguel National HighSchool',
     'Bajet-Castillo High School',
-    'Pulong Buhangin National High School'
+    'Pulong Buhangin National High School',
+    'Others',
   ];
-  
-  // FIXED: Removed duplicates - each grade level appears only once
-  final List<String> _sections = [
+
+  final List<String> _gradeOptions = [
     'Grade 7',
-    'Grade 8', 
+    'Grade 8',
     'Grade 9',
     'Grade 10',
     'Non-graded',
+    'Others',
   ];
-  
+
   String? _selectedSchool;
-  String? _selectedSection;
+  String? _selectedGrade;
+
+  String? get _finalSchool {
+    if (_selectedSchool == 'Others') {
+      final typed = _otherSchoolController.text.trim();
+      return typed.isEmpty ? null : typed;
+    }
+    return _selectedSchool;
+  }
+
+  String? get _finalSection {
+    final grade = _selectedGrade;
+    final classSection = _sectionController.text.trim();
+
+    String? actualGrade;
+    if (grade == 'Others') {
+      final typed = _otherGradeController.text.trim();
+      actualGrade = typed.isEmpty ? null : typed;
+    } else {
+      actualGrade = grade;
+    }
+
+    if (actualGrade == null) return null;
+    if (classSection.isNotEmpty && classSection != 'None') {
+      return '$actualGrade - $classSection';
+    }
+    return actualGrade;
+  }
 
   @override
   void initState() {
@@ -5276,60 +5281,87 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _loadUserData() {
-    // Get current user data from UserProvider
-    final currentName = UserProvider.getUserName();
-    final currentEmail = UserProvider.getUserEmail();
-    final currentSchool = UserProvider.getUserSchool();
+    final currentName    = UserProvider.getUserName();
+    final currentEmail   = UserProvider.getUserEmail();
+    final currentSchool  = UserProvider.getUserSchool();
     final currentSection = UserProvider.getUserSection();
-    
-    // Split name into first and last name
+
     final nameParts = currentName.split(' ');
     if (nameParts.length >= 2) {
       _firstNameController.text = nameParts.first;
-      _lastNameController.text = nameParts.sublist(1).join(' ');
+      _lastNameController.text  = nameParts.sublist(1).join(' ');
     } else {
       _firstNameController.text = currentName;
     }
-    
+
     _emailController.text = currentEmail;
-    
-    // Set school and section from current user data
+
     setState(() {
-      _selectedSchool = currentSchool;
-      _selectedSection = currentSection;
+      // Restore school
+      if (currentSchool != null && _schools.contains(currentSchool)) {
+        _selectedSchool = currentSchool;
+      } else if (currentSchool != null && currentSchool.isNotEmpty) {
+        _selectedSchool = 'Others';
+        _otherSchoolController.text = currentSchool;
+      } else {
+        _selectedSchool = null;
+      }
+
+      // Restore grade level and class/section
+      if (currentSection != null && currentSection.isNotEmpty) {
+        if (currentSection.contains(' - ')) {
+          final parts = currentSection.split(' - ');
+          final grade = parts[0].trim();
+          final classSection = parts.sublist(1).join(' - ').trim();
+
+          if (_gradeOptions.contains(grade)) {
+            _selectedGrade = grade;
+          } else {
+            // Was a custom grade typed via "Others"
+            _selectedGrade = 'Others';
+            _otherGradeController.text = grade;
+          }
+          _sectionController.text = classSection;
+        } else {
+          final grade = currentSection.trim();
+          if (_gradeOptions.contains(grade)) {
+            _selectedGrade = grade;
+          } else {
+            // Was a custom grade typed via "Others"
+            _selectedGrade = 'Others';
+            _otherGradeController.text = grade;
+          }
+          _sectionController.text = '';
+        }
+      }
     });
   }
 
   Future<void> _saveProfile() async {
-    final firstName = _firstNameController.text.trim();
-    final lastName = _lastNameController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
+    final firstName       = _firstNameController.text.trim();
+    final lastName        = _lastNameController.text.trim();
+    final email           = _emailController.text.trim();
+    final password        = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
-    final school = _selectedSchool;
-    final section = _selectedSection;
+    final school          = _finalSchool;
+    final section         = _finalSection;
 
-    // Validation
     if (firstName.isEmpty) {
       _showErrorSnackbar('Please enter your first name');
       return;
     }
-
     if (lastName.isEmpty) {
       _showErrorSnackbar('Please enter your last name');
       return;
     }
-
     if (email.isEmpty) {
       _showErrorSnackbar('Please enter your email');
       return;
     }
-
     if (!email.endsWith('@gmail.com')) {
       _showErrorSnackbar('Please use a valid Gmail address (@gmail.com)');
       return;
     }
-
     if (password.isNotEmpty) {
       if (password.length < 6) {
         _showErrorSnackbar('Password must be at least 6 characters');
@@ -5340,67 +5372,84 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         return;
       }
     }
-
-    if (school == null || school.isEmpty) {
+    if (_selectedSchool == null) {
       _showErrorSnackbar('Please select your school');
       return;
     }
-
-    if (section == null || section.isEmpty) {
-      _showErrorSnackbar('Please select your grade level');
+    if (_selectedSchool == 'Others' &&
+        _otherSchoolController.text.trim().isEmpty) {
+      _showErrorSnackbar('Please enter your school name');
+      return;
+    }
+    if (_selectedGrade == null) {
+      _showErrorSnackbar('Please select your Grade Level');
+      return;
+    }
+    if (_selectedGrade == 'Others' &&
+        _otherGradeController.text.trim().isEmpty) {
+      _showErrorSnackbar('Please enter your grade level');
+      return;
+    }
+    if (_sectionController.text.trim().isEmpty) {
+      _showErrorSnackbar(
+          'Please enter your Class / Section (type "None" if not applicable)');
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      // Update user data in UserProvider
+      final fullName = '$firstName $lastName';
+
+      final authService = LocalAuthService();
+      await authService.updateUserProfile(
+        email: email,
+        name: fullName,
+        school: school,
+        section: section,
+      );
+
+      if (password.isNotEmpty) {
+        await authService.resetPassword(email, password);
+        debugPrint('✅ Password updated in Hive');
+      }
+
       UserProvider.updateUserInfo(
-        name: '$firstName $lastName',
+        name: fullName,
         email: email,
         school: school,
         section: section,
       );
 
-      // If password was changed, update it in LocalAuthService (the actual storage)
-      if (password.isNotEmpty) {
-        final authService = LocalAuthService();
-        await authService.resetPassword(email, password);
-        debugPrint('✅ Password updated successfully in LocalAuthService');
-        
-        // Also update legacy UserProvider for backward compatibility
-        final credentials = UserProvider.getCredentials(email);
-        if (credentials != null) {
-          credentials['password'] = password;
-        }
+      if (mounted) {
+        final userProvider =
+            Provider.of<backend.UserProvider>(context, listen: false);
+        await userProvider.updateUserInfo(
+          name: fullName,
+          school: school,
+          section: section,
+        );
       }
-
-      // Also update the backend UserProvider
-      final userProvider = Provider.of<backend.UserProvider>(context, listen: false);
-      await userProvider.updateUserInfo(
-        name: '$firstName $lastName',
-        school: school,
-        section: section,
-      );
 
       setState(() => _isLoading = false);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text(
               'Profile updated successfully!',
-              style: const TextStyle(fontFamily: 'Poppins-Regular', fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontFamily: 'Poppins-Regular',
+                fontWeight: FontWeight.bold,
+              ),
             ),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
+            duration: Duration(seconds: 2),
           ),
         );
 
         Future.delayed(const Duration(milliseconds: 1500), () {
-          if (mounted) {
-            Navigator.pop(context);
-          }
+          if (mounted) Navigator.pop(context);
         });
       }
     } catch (e) {
@@ -5430,7 +5479,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Background decorative elements
             Positioned(
               top: -50,
               right: -50,
@@ -5455,7 +5503,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
               ),
             ),
-            
+
             SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -5474,8 +5522,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  
-                  // Title - CENTERED
+
+                  // Title
                   Center(
                     child: Text(
                       'Edit Profile',
@@ -5487,10 +5535,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                     ),
                   ),
-                  
                   const SizedBox(height: 10),
-                  
-                  // Subtitle - CENTERED
+
                   Center(
                     child: Text(
                       'Update your personal information',
@@ -5501,47 +5547,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                     ),
                   ),
-                  
                   const SizedBox(height: 30),
-                  
-                  // Container with image
-                  SizedBox(
-                    width: double.infinity,
-                    child: Stack(
-                      children: [
-                        // Title on left
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Update',
-                              style: TextStyle(
-                                fontSize: 42,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Lora-Regular',
-                                color: Colors.black,
-                                height: 0.9,
-                              ),
-                            ),
-                            Text(
-                              'Profile',
-                              style: TextStyle(
-                                fontSize: 42,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Lora-Regular',
-                                color: Colors.black,
-                                height: 0.9,
-                              ),
-                            ),
-                          ],
+
+                  // Heading
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Update',
+                        style: TextStyle(
+                          fontSize: 42,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Lora-Regular',
+                          color: Colors.black,
+                          height: 0.9,
                         ),
-                      ],
-                    ),
+                      ),
+                      Text(
+                        'Profile',
+                        style: TextStyle(
+                          fontSize: 42,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Lora-Regular',
+                          color: Colors.black,
+                          height: 0.9,
+                        ),
+                      ),
+                    ],
                   ),
-                  
                   const SizedBox(height: 30),
-                  
-                  // Edit Profile card
+
+                  // Form card
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(25),
@@ -5566,144 +5602,113 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           label: 'First Name:',
                           hintText: 'Enter your first name',
                           prefixIcon: Icons.person,
+                          textCapitalization: TextCapitalization.words,
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Last Name
                         _buildTextField(
                           controller: _lastNameController,
                           label: 'Last Name:',
                           hintText: 'Enter your last name',
                           prefixIcon: Icons.person_outline,
+                          textCapitalization: TextCapitalization.words,
                         ),
                         const SizedBox(height: 20),
-                        
-                        // FIXED: School Dropdown with proper initialization
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'School:',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Lora-Regular',
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8F8F8),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.black, width: 1),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: _selectedSchool,
-                                    hint: Padding(
-                                      padding: const EdgeInsets.only(left: 8),
-                                      child: Text(
-                                        _selectedSchool ?? 'Select your school',
-                                        style: TextStyle(
-                                          fontFamily: 'Poppins-Regular',
-                                          color: _selectedSchool == null ? Colors.grey[600] : Colors.black,
-                                        ),
-                                      ),
+
+                        // School dropdown
+                        _buildDropdownField(
+                          label: 'School:',
+                          hintText: 'Select your school',
+                          prefixIcon: Icons.school,
+                          value: _selectedSchool,
+                          items: _schools
+                              .map((school) => DropdownMenuItem<String>(
+                                    value: school,
+                                    child: Text(
+                                      school,
+                                      style: const TextStyle(
+                                          fontFamily: 'Poppins-Regular'),
                                     ),
-                                    icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
-                                    iconSize: 30,
-                                    isExpanded: true,
-                                    style: const TextStyle(
-                                      fontFamily: 'Poppins-Regular',
-                                      fontSize: 16,
-                                      color: Colors.black,
-                                    ),
-                                    items: _schools.map((school) {
-                                      return DropdownMenuItem<String>(
-                                        value: school,
-                                        child: Text(school),
-                                      );
-                                    }).toList(),
-                                    onChanged: _isLoading ? null : (String? newValue) {
-                                      setState(() {
-                                        _selectedSchool = newValue;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                                  ))
+                              .toList(),
+                          onChanged: _isLoading
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _selectedSchool = value;
+                                    if (value != 'Others') {
+                                      _otherSchoolController.clear();
+                                    }
+                                  });
+                                },
                         ),
-                        
+
+                        // Others school text field
+                        if (_selectedSchool == 'Others') ...[
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                            controller: _otherSchoolController,
+                            label: 'Enter your school name:',
+                            hintText: 'Type your school name here',
+                            prefixIcon: Icons.edit_location_alt,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                        ],
                         const SizedBox(height: 20),
-                        
-                        // FIXED: Section Dropdown with proper initialization
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Grade Level:',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Lora-Regular',
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8F8F8),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.black, width: 1),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: _selectedSection,
-                                    hint: Padding(
-                                      padding: const EdgeInsets.only(left: 8),
-                                      child: Text(
-                                        _selectedSection ?? 'Select your grade level',
-                                        style: TextStyle(
-                                          fontFamily: 'Poppins-Regular',
-                                          color: _selectedSection == null ? Colors.grey[600] : Colors.black,
-                                        ),
-                                      ),
+
+                        // Grade Level dropdown
+                        _buildDropdownField(
+                          label: 'Grade Level:',
+                          hintText: 'Select your grade level',
+                          prefixIcon: Icons.group,
+                          value: _selectedGrade,
+                          items: _gradeOptions
+                              .map((grade) => DropdownMenuItem<String>(
+                                    value: grade,
+                                    child: Text(
+                                      grade,
+                                      style: const TextStyle(
+                                          fontFamily: 'Poppins-Regular'),
                                     ),
-                                    icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
-                                    iconSize: 30,
-                                    isExpanded: true,
-                                    style: const TextStyle(
-                                      fontFamily: 'Poppins-Regular',
-                                      fontSize: 16,
-                                      color: Colors.black,
-                                    ),
-                                    items: _sections.map((section) {
-                                      return DropdownMenuItem<String>(
-                                        value: section,
-                                        child: Text(section),
-                                      );
-                                    }).toList(),
-                                    onChanged: _isLoading ? null : (String? newValue) {
-                                      setState(() {
-                                        _selectedSection = newValue;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                                  ))
+                              .toList(),
+                          onChanged: _isLoading
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _selectedGrade = value;
+                                    if (value != 'Others') {
+                                      _otherGradeController.clear();
+                                    }
+                                  });
+                                },
                         ),
-                        
+
+                        // Others grade text field
+                        if (_selectedGrade == 'Others') ...[
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                            controller: _otherGradeController,
+                            label: 'Enter your grade level:',
+                            hintText: 'Type your grade level here',
+                            prefixIcon: Icons.edit,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                        ],
                         const SizedBox(height: 20),
-                        
+
+                        // Class / Section
+                        _buildTextField(
+                          controller: _sectionController,
+                          label: 'Class / Section:',
+                          hintText:
+                              'e.g. Sampaguita, Section A — type "None" if not applicable',
+                          prefixIcon: Icons.class_,
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 20),
+
                         // Email
                         _buildTextField(
                           controller: _emailController,
@@ -5713,21 +5718,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           keyboardType: TextInputType.emailAddress,
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // New Password
                         _buildPasswordField(
                           controller: _passwordController,
                           label: 'New Password (optional):',
-                          hintText: 'Enter new password (leave empty to keep current)',
+                          hintText:
+                              'Enter new password (leave empty to keep current)',
                           isPasswordVisible: _isPasswordVisible,
                           onToggleVisibility: () {
-                            setState(() {
-                              _isPasswordVisible = !_isPasswordVisible;
-                            });
+                            setState(() =>
+                                _isPasswordVisible = !_isPasswordVisible);
                           },
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Confirm Password
                         _buildPasswordField(
                           controller: _confirmPasswordController,
@@ -5735,14 +5740,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           hintText: 'Confirm your new password',
                           isPasswordVisible: _isConfirmPasswordVisible,
                           onToggleVisibility: () {
-                            setState(() {
-                              _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                            });
+                            setState(() => _isConfirmPasswordVisible =
+                                !_isConfirmPasswordVisible);
                           },
                         ),
-                        
                         const SizedBox(height: 35),
-                        
+
                         // Save Button
                         SizedBox(
                           width: double.infinity,
@@ -5754,9 +5757,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 side: const BorderSide(
-                                  color: Colors.black,
-                                  width: 2,
-                                ),
+                                    color: Colors.black, width: 2),
                               ),
                               elevation: 5,
                               shadowColor: Colors.black.withOpacity(0.2),
@@ -5768,7 +5769,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                      valueColor:
+                                          AlwaysStoppedAnimation<Color>(
+                                              Colors.black),
                                     ),
                                   )
                                 : Text(
@@ -5781,12 +5784,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 40),
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 40),
                 ],
               ),
@@ -5803,13 +5806,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required String hintText,
     required IconData prefixIcon,
     TextInputType keyboardType = TextInputType.text,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
             fontFamily: 'Lora-Regular',
@@ -5821,30 +5825,92 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFF8F8F8),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.black,
-              width: 1,
-            ),
+            border: Border.all(color: Colors.black, width: 1),
           ),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
+            textCapitalization: textCapitalization,
             decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
               hintText: hintText,
               hintStyle: TextStyle(
-                fontFamily: 'Poppins-Regular',
-                color: Colors.grey[600],
-              ),
+                  fontFamily: 'Poppins-Regular', color: Colors.grey[600]),
               border: InputBorder.none,
               prefixIcon: Icon(prefixIcon, color: Colors.black),
               filled: true,
               fillColor: Colors.transparent,
             ),
-            style: TextStyle(
+            style: const TextStyle(
               fontFamily: 'Poppins-Regular',
               fontSize: 16,
               color: Colors.black,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField({
+    required String label,
+    required String hintText,
+    required IconData prefixIcon,
+    required String? value,
+    required List<DropdownMenuItem<String>> items,
+    required Function(String?)? onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Lora-Regular',
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F8F8),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.black, width: 1),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                Icon(prefixIcon, color: Colors.black),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: value,
+                      hint: Text(
+                        hintText,
+                        style: TextStyle(
+                            fontFamily: 'Poppins-Regular',
+                            color: Colors.grey[600]),
+                      ),
+                      icon: const Icon(Icons.arrow_drop_down,
+                          color: Colors.black),
+                      iconSize: 30,
+                      isExpanded: true,
+                      style: const TextStyle(
+                        fontFamily: 'Poppins-Regular',
+                        fontSize: 16,
+                        color: Colors.black,
+                      ),
+                      items: items,
+                      onChanged: onChanged,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -5864,7 +5930,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
             fontFamily: 'Lora-Regular',
@@ -5876,26 +5942,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFF8F8F8),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.black,
-              width: 1,
-            ),
+            border: Border.all(color: Colors.black, width: 1),
           ),
           child: TextField(
             controller: controller,
             obscureText: !isPasswordVisible,
             decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
               hintText: hintText,
               hintStyle: TextStyle(
-                fontFamily: 'Poppins-Regular',
-                color: Colors.grey[600],
-              ),
+                  fontFamily: 'Poppins-Regular', color: Colors.grey[600]),
               border: InputBorder.none,
               prefixIcon: const Icon(Icons.lock, color: Colors.black),
               suffixIcon: IconButton(
                 icon: Icon(
-                  isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                  isPasswordVisible
+                      ? Icons.visibility
+                      : Icons.visibility_off,
                   color: Colors.black,
                 ),
                 onPressed: onToggleVisibility,
@@ -5903,7 +5967,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               filled: true,
               fillColor: Colors.transparent,
             ),
-            style: TextStyle(
+            style: const TextStyle(
               fontFamily: 'Poppins-Regular',
               fontSize: 16,
               color: Colors.black,
@@ -9109,158 +9173,169 @@ class Lesson {
   });
 }
 
-// ============ TOPICS DATA WITH HELPER METHODS ============
+// ============================================================
+// TOPICS DATA — COMPLETE FIXED VERSION
+// Replace your existing TopicsData class with this entire block.
+// Key fix: uses _cachedTopics so the list is only built ONCE.
+// ============================================================
+
 class TopicsData {
-  static final List<Topic> _topics = [
-    Topic(
-      id: 'topic1',
-      title: '1. Number Values',
-      lessons: [
-        Lesson(
-          id: 'lesson1_1',
-          title: 'Whole Numbers',
-          topicId: 'topic1',
-          subtopics: [
-            'Count Up To 20',
-            'Count Numbers Up to 50 (by 5s and 10s)',
-            'Count Numbers Up to 100 (by 5s, 10s and 20s)',
-          ],
-        ),
-        Lesson(
-          id: 'lesson1_2',
-          title: 'Comparison',
-          topicId: 'topic1',
-          subtopics: [
-            'Compare Groups of Objects',
-            'Arrange Numbers in Order',
-          ],
-        ),
-      ],
-    ),
-    Topic(
-      id: 'topic2',
-      title: '2. Fundamental Operations',
-      lessons: [
-        Lesson(
-          id: 'lesson2_1',
-          title: 'Addition',
-          topicId: 'topic2',
-          subtopics: [
-            'Basic Addition Concepts',
-            'Adding with Objects',
-            'Adding One to Two-Digit Numbers',
-            'Properties of Addition',
-            'Adding Larger Numbers',
-          ],
-        ),
-        Lesson(
-          id: 'lesson2_2',
-          title: 'Subtraction',
-          topicId: 'topic2',
-          subtopics: [
-            'Understanding Subtraction',
-            'Subtracting with Objects',
-            'Subtracting One to Two-Digit Numbers',
-            'Subtracting Larger Numbers',
-          ],
-        ),
-        Lesson(
-          id: 'lesson2_3',
-          title: 'Multiplication',
-          topicId: 'topic2',
-          subtopics: [
-            'Understanding Multiplication',
-            'Representing Multiplication',
-            'Multiplying Numbers',
-            'Properties of Multiplication',
-          ],
-        ),
-        Lesson(
-          id: 'lesson2_4',
-          title: 'Division',
-          topicId: 'topic2',
-          subtopics: [
-            'Understanding Division',
-            'Division as Repeated Subtraction',
-            'Dividing Numbers',
-          ],
-        ),
-      ],
-    ),
-    Topic(
-      id: 'topic3',
-      title: '3. Fraction',
-      lessons: [
-        Lesson(
-          id: 'lesson3_1',
-          title: 'Fraction',
-          topicId: 'topic3',
-          subtopics: [
-            'Recognizing Fractions',
-            'Describing Fractions',
-            'Reading Fractions',
-            'Comparing Fractions',
-            'Ordering Fractions',
-          ],
-        ),
-      ],
-    ),
-    Topic(
-      id: 'topic4',
-      title: '4. Decimal Numbers',
-      lessons: [
-        Lesson(
-          id: 'lesson4_1',
-          title: 'Decimal Numbers',
-          topicId: 'topic4',
-          subtopics: [
-            'Decimal to Fraction Conversion',
-            'Place Value in Decimals',
-          ],
-        ),
-      ],
-    ),
-    Topic(
-      id: 'topic5',
-      title: '5. Percentage',
-      lessons: [
-        Lesson(
-          id: 'lesson5_1',
-          title: 'Percentage',
-          topicId: 'topic5',
-          subtopics: [
-            'Describing Percentage',
-            'Converting Fractions to Percentages',
-            'Converting Percentages to Fractions',
-          ],
-        ),
-      ],
-    ),
-    Topic(
-      id: 'topic6',
-      title: '6. Algebra',
-      lessons: [
-        Lesson(
-          id: 'lesson6_1',
-          title: 'Algebra',
-          topicId: 'topic6',
-          subtopics: [
-            'Missing Values in Addition',
-            'Missing Values in Subtraction',
-            'Missing Values in Multiplication',
-            'Missing Values in Division',
-          ],
-        ),
-      ],
-    ),
-  ];
+  // Lazy cache — built only on first call, never again.
+  static List<Topic>? _cachedTopics;
 
   static List<Topic> getTopics() {
-    return _topics;
+    _cachedTopics ??= _buildTopics();
+    return _cachedTopics!;
+  }
+
+  static List<Topic> _buildTopics() {
+    return [
+      Topic(
+        id: 'topic1',
+        title: '1. Number Values',
+        lessons: [
+          Lesson(
+            id: 'lesson1_1',
+            title: 'Whole Numbers',
+            topicId: 'topic1',
+            subtopics: [
+              'Count Up To 20',
+              'Count Numbers Up to 50 (by 5s and 10s)',
+              'Count Numbers Up to 100 (by 5s, 10s and 20s)',
+            ],
+          ),
+          Lesson(
+            id: 'lesson1_2',
+            title: 'Comparison',
+            topicId: 'topic1',
+            subtopics: [
+              'Compare Groups of Objects',
+              'Arrange Numbers in Order',
+            ],
+          ),
+        ],
+      ),
+      Topic(
+        id: 'topic2',
+        title: '2. Fundamental Operations',
+        lessons: [
+          Lesson(
+            id: 'lesson2_1',
+            title: 'Addition',
+            topicId: 'topic2',
+            subtopics: [
+              'Basic Addition Concepts',
+              'Adding with Objects',
+              'Adding One to Two-Digit Numbers',
+              'Properties of Addition',
+              'Adding Larger Numbers',
+            ],
+          ),
+          Lesson(
+            id: 'lesson2_2',
+            title: 'Subtraction',
+            topicId: 'topic2',
+            subtopics: [
+              'Understanding Subtraction',
+              'Subtracting with Objects',
+              'Subtracting One to Two-Digit Numbers',
+              'Subtracting Larger Numbers',
+            ],
+          ),
+          Lesson(
+            id: 'lesson2_3',
+            title: 'Multiplication',
+            topicId: 'topic2',
+            subtopics: [
+              'Understanding Multiplication',
+              'Representing Multiplication',
+              'Multiplying Numbers',
+              'Properties of Multiplication',
+            ],
+          ),
+          Lesson(
+            id: 'lesson2_4',
+            title: 'Division',
+            topicId: 'topic2',
+            subtopics: [
+              'Understanding Division',
+              'Division as Repeated Subtraction',
+              'Dividing Numbers',
+            ],
+          ),
+        ],
+      ),
+      Topic(
+        id: 'topic3',
+        title: '3. Fraction',
+        lessons: [
+          Lesson(
+            id: 'lesson3_1',
+            title: 'Fraction',
+            topicId: 'topic3',
+            subtopics: [
+              'Recognizing Fractions',
+              'Describing Fractions',
+              'Reading Fractions',
+              'Comparing Fractions',
+              'Ordering Fractions',
+            ],
+          ),
+        ],
+      ),
+      Topic(
+        id: 'topic4',
+        title: '4. Decimal Numbers',
+        lessons: [
+          Lesson(
+            id: 'lesson4_1',
+            title: 'Decimal Numbers',
+            topicId: 'topic4',
+            subtopics: [
+              'Decimal to Fraction Conversion',
+              'Place Value in Decimals',
+            ],
+          ),
+        ],
+      ),
+      Topic(
+        id: 'topic5',
+        title: '5. Percentage',
+        lessons: [
+          Lesson(
+            id: 'lesson5_1',
+            title: 'Percentage',
+            topicId: 'topic5',
+            subtopics: [
+              'Describing Percentage',
+              'Converting Fractions to Percentages',
+              'Converting Percentages to Fractions',
+            ],
+          ),
+        ],
+      ),
+      Topic(
+        id: 'topic6',
+        title: '6. Algebra',
+        lessons: [
+          Lesson(
+            id: 'lesson6_1',
+            title: 'Algebra',
+            topicId: 'topic6',
+            subtopics: [
+              'Missing Values in Addition',
+              'Missing Values in Subtraction',
+              'Missing Values in Multiplication',
+              'Missing Values in Division',
+            ],
+          ),
+        ],
+      ),
+    ];
   }
 
   static List<Lesson> getAllLessons() {
-    return _topics.expand((topic) => topic.lessons).toList();
+    return getTopics().expand((topic) => topic.lessons).toList();
   }
 
   static Lesson? getLessonById(String id) {
@@ -9286,7 +9361,6 @@ class TopicsData {
     return lesson?.subtopics ?? [];
   }
 
-  // Helper method to get lesson by title
   static Lesson? getLessonByTitle(String title) {
     try {
       return getAllLessons().firstWhere((lesson) => lesson.title == title);
@@ -9295,26 +9369,23 @@ class TopicsData {
     }
   }
 
-  // Get all subtopics for a lesson by title
   static List<String> getSubtopicsByLessonTitle(String title) {
     final lesson = getLessonByTitle(title);
     return lesson?.subtopics ?? [];
   }
 
-  // Get all lessons for a topic by topic title
   static List<Lesson> getLessonsByTopicTitle(String topicTitle) {
     try {
-      final topic = _topics.firstWhere((t) => t.title == topicTitle);
+      final topic = getTopics().firstWhere((t) => t.title == topicTitle);
       return topic.lessons;
     } catch (e) {
       return [];
     }
   }
 
-  // Get total count of subtopics across all lessons
   static int getTotalSubtopics() {
     int total = 0;
-    for (var topic in _topics) {
+    for (var topic in getTopics()) {
       for (var lesson in topic.lessons) {
         total += lesson.subtopics.length;
       }
@@ -9322,16 +9393,14 @@ class TopicsData {
     return total;
   }
 
-  // Get subtopics count for a specific lesson
   static int getSubtopicCountForLesson(String lessonTitle) {
     final lesson = getLessonByTitle(lessonTitle);
     return lesson?.subtopics.length ?? 0;
   }
 
-  // Debug method to print all lessons and their subtopics
   static void printAllLessons() {
     print('=== ALL LESSONS AND SUBTOPICS ===');
-    for (var topic in _topics) {
+    for (var topic in getTopics()) {
       print('\n${topic.title}:');
       for (var lesson in topic.lessons) {
         print('  ${lesson.title} (${lesson.subtopics.length} subtopics):');
@@ -10966,7 +11035,6 @@ class _NumberValuesLessonsScreenState extends State<NumberValuesLessonsScreen> {
   }
 }
 
-// ============ FIXED EXERCISE SCREEN - Whole Numbers Exercise ============
 class WholeNumbersExerciseScreen extends StatefulWidget {
   final String lessonName;
   final String language;
@@ -10987,102 +11055,90 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
   bool _exerciseCompleted = false;
   List<dynamic> _userAnswers = List.filled(15, null);
   List<bool> _answeredQuestions = List.filled(15, false);
-  
-  // For drag and drop
+
   List<String> _dragItems = [];
   List<String> _dragTargets = [];
+  Map<int, Map<int, int>> _matchingSelections = {};
+  Map<int, Map<int, String>> _sequenceFilledBlanks = {};
   bool _dragItemsInitialized = false;
 
-  // For matching type selections
-  Map<int, int> _matchingSelections = {}; // leftIndex -> rightIndex
-
   final List<Map<String, dynamic>> _questions = [
-    // ===== MULTIPLE CHOICE (3 items) =====
     {
       'id': 1,
       'type': 'multiple_choice',
       'question': 'How many apples are there?',
-      'objects': ['🍎', '🍎', '🍎', '🍎', '🍎', '🍎', '🍎', '🍎'],
+      'objects': ['🍎','🍎','🍎','🍎','🍎','🍎','🍎','🍎'],
       'objectCount': 8,
-      'correctAnswer': 3, // Index 3 corresponds to 8
+      'correctAnswer': 3,
       'options': [5, 6, 7, 8, 9],
-      'explanation': 'There are 8 apples. Count them: 1, 2, 3, 4, 5, 6, 7, 8.',
+      'explanation': 'There are 8 apples. Count them: 1,2,3,4,5,6,7,8.',
     },
     {
       'id': 2,
       'type': 'multiple_choice',
       'question': 'Count the stars. How many are there?',
-      'objects': ['⭐', '⭐', '⭐', '⭐', '⭐', '⭐', '⭐', '⭐', '⭐', '⭐', '⭐', '⭐'],
+      'objects': ['⭐','⭐','⭐','⭐','⭐','⭐','⭐','⭐','⭐','⭐','⭐','⭐'],
       'objectCount': 12,
-      'correctAnswer': 2, // Index 2 corresponds to 12
+      'correctAnswer': 2,
       'options': [10, 11, 12, 13, 14],
-      'explanation': 'There are 12 stars. Counting by ones: 12 stars.',
+      'explanation': 'There are 12 stars.',
     },
     {
       'id': 3,
       'type': 'multiple_choice',
       'question': 'What number comes after 15 when counting by ones?',
-      'correctAnswer': 2, // Index 2 corresponds to 16
+      'correctAnswer': 2,
       'options': [14, 15, 16, 17, 18],
-      'explanation': 'When counting by ones: 14, 15, 16, 17, 18. After 15 comes 16.',
+      'explanation': 'After 15 comes 16.',
     },
-
-    // ===== FILL IN THE BLANKS (3 items) =====
     {
       'id': 4,
       'type': 'fill_blank',
       'question': 'Count by 1s: 18, 19, __, 21',
       'correctAnswer': '20',
-      'blankPosition': 2,
-      'explanation': 'After 19 comes 20 when counting by ones.',
+      'explanation': 'After 19 comes 20.',
     },
     {
       'id': 5,
       'type': 'fill_blank',
       'question': 'Count by 5s: 5, 10, 15, __, 25',
       'correctAnswer': '20',
-      'blankPosition': 3,
-      'explanation': 'Counting by 5s: 5, 10, 15, 20, 25.',
+      'explanation': 'Counting by 5s: 5,10,15,20,25.',
     },
     {
       'id': 6,
       'type': 'fill_blank',
       'question': 'Count by 10s: 10, 20, 30, __, 50',
       'correctAnswer': '40',
-      'blankPosition': 3,
-      'explanation': 'Counting by 10s: 10, 20, 30, 40, 50.',
+      'explanation': 'Counting by 10s: 10,20,30,40,50.',
     },
-
-    // ===== MATCHING TYPE (3 items) - LAHAT SIMPLE AT MADALI =====
-{
-  'id': 7,
-  'type': 'matching',
-  'question': 'Match each number with the correct counting pattern:',
-  'leftItems': ['25', '40', '30', '20'],
-  'rightItems': ['5, 10, 15, 20, 25', '10, 20, 30, 40', '5, 10, 15, 20, 25, 30', '5, 10, 15, 20'],
-  'correctMatches': [0, 1, 2, 3], 
-  'explanation': '25 = 5,10,15,20,25 | 40 = 10,20,30,40 | 30 = 5,10,15,20,25,30 | 20 = 5,10,15,20',
-},
-{
-  'id': 8,
-  'type': 'matching',
-  'question': 'Match each number with the correct counting pattern:',
-  'leftItems': ['50', '100', '75', '60'],
-  'rightItems': ['10, 20, 30, 40, 50', '20, 40, 60, 80, 100', '5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75', '10, 20, 30, 40, 50, 60'],
-  'correctMatches': [0, 1, 2, 3], 
-  'explanation': '50 = 10,20,30,40,50 | 100 = 20,40,60,80,100 | 75 = count by 5s to 75 | 60 = 10,20,30,40,50,60',
-},
-{
-  'id': 9,
-  'type': 'matching',
-  'question': 'Match each number with the correct counting pattern:',
-  'leftItems': ['15', '45', '90', '80'],
-  'rightItems': ['5, 10, 15', '5, 10, 15, 20, 25, 30, 35, 40, 45', '10, 20, 30, 40, 50, 60, 70, 80, 90', '20, 40, 60, 80'],
-  'correctMatches': [0, 1, 2, 3],
-  'explanation': '15 = 5,10,15 | 45 = count by 5s to 45 | 90 = count by 10s to 90 | 80 = 20,40,60,80',
-},
-
-    // ===== DRAG AND DROP (3 items) =====
+    {
+      'id': 7,
+      'type': 'matching',
+      'question': 'Match each number with the correct counting pattern:',
+      'leftItems': ['25', '40', '30', '20'],
+      'rightItems': ['5,10,15,20,25', '10,20,30,40', '5,10,15,20,25,30', '5,10,15,20'],
+      'correctMatches': [0, 1, 2, 3],
+      'explanation': '25=5s to 25 | 40=10s to 40 | 30=5s to 30 | 20=5s to 20',
+    },
+    {
+      'id': 8,
+      'type': 'matching',
+      'question': 'Match each number with the correct counting pattern:',
+      'leftItems': ['50', '100', '75', '60'],
+      'rightItems': ['10,20,30,40,50', '20,40,60,80,100', 'count by 5s to 75', '10,20,30,40,50,60'],
+      'correctMatches': [0, 1, 2, 3],
+      'explanation': '50=10s to 50 | 100=20s to 100 | 75=5s to 75 | 60=10s to 60',
+    },
+    {
+      'id': 9,
+      'type': 'matching',
+      'question': 'Match each number with the correct counting pattern:',
+      'leftItems': ['15', '45', '90', '80'],
+      'rightItems': ['5,10,15', 'count by 5s to 45', 'count by 10s to 90', '20,40,60,80'],
+      'correctMatches': [0, 1, 2, 3],
+      'explanation': '15=5s | 45=5s to 45 | 90=10s to 90 | 80=20s to 80',
+    },
     {
       'id': 10,
       'type': 'drag_drop',
@@ -11091,7 +11147,7 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       'availableNumbers': ['20', '30', '25', '40', '45'],
       'correctAnswer': ['20', '30'],
       'blankPositions': [3, 5],
-      'explanation': 'Counting by 5s: 5, 10, 15, 20, 25, 30, 35',
+      'explanation': 'Counting by 5s: 5,10,15,20,25,30,35',
     },
     {
       'id': 11,
@@ -11111,31 +11167,29 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       'availableNumbers': ['40', '80', '50', '90', '70'],
       'correctAnswer': ['40', '80'],
       'blankPositions': [1, 3],
-      'explanation': 'Counting by 20s: 20, 40, 60, 80, 100',
+      'explanation': 'Counting by 20s: 20,40,60,80,100',
     },
-
-    // ===== OTHER WAYS (3 items) =====
     {
       'id': 13,
       'type': 'true_false',
       'question': 'True or False: When counting by 5s, the number 25 comes before 30.',
       'correctAnswer': true,
-      'explanation': 'True. Counting by 5s: 5,10,15,20,25,30. 25 comes before 30.',
+      'explanation': 'True. Counting by 5s: 5,10,15,20,25,30.',
     },
     {
       'id': 14,
       'type': 'circle_answer',
       'question': 'Choose the next number when counting by 10s: 20, 30, 40, ___',
       'options': ['45', '50', '55', '60'],
-      'correctAnswer': 1, // 50
-      'explanation': 'Counting by 10s: 20, 30, 40, 50. The next number is 50.',
+      'correctAnswer': 1,
+      'explanation': 'Counting by 10s: 20,30,40,50.',
     },
     {
       'id': 15,
       'type': 'write_number',
-      'question': 'Write the missing number: Count by 1s from 93 to 100: 93, 94, 95, 96, 97, 98, 99, ___',
+      'question': 'Write the missing number: Count by 1s from 93 to 100: 93,94,95,96,97,98,99,___',
       'correctAnswer': '100',
-      'explanation': 'After 99 comes 100 when counting by ones.',
+      'explanation': 'After 99 comes 100.',
     },
   ];
 
@@ -11149,6 +11203,7 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
     _dragItemsInitialized = false;
     _initDragItems();
     _initMatchingSelections();
+    _initSequenceBlanks();
   }
 
   void _initDragItems() {
@@ -11157,66 +11212,88 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       _dragItems = List<String>.from(question['availableNumbers'] as List);
       _dragItems.shuffle();
       _dragTargets = List.filled((question['correctAnswer'] as List).length, '');
-      _dragItemsInitialized = true;
+      _sequenceFilledBlanks[_currentQuestion] = {};
     }
+    _dragItemsInitialized = true;
   }
 
   void _initMatchingSelections() {
     final question = _questions[_currentQuestion];
     if (question['type'] == 'matching') {
-      _matchingSelections = {};
+      _matchingSelections[_currentQuestion] = {};
+    }
+  }
+
+  void _initSequenceBlanks() {
+    final question = _questions[_currentQuestion];
+    if (question['type'] == 'drag_drop') {
+      _sequenceFilledBlanks[_currentQuestion] = {};
     }
   }
 
   void _updateMatchingSelection(int leftIndex, int rightIndex) {
     setState(() {
-      _matchingSelections[leftIndex] = rightIndex;
+      _matchingSelections[_currentQuestion] ??= {};
+      _matchingSelections[_currentQuestion]![leftIndex] = rightIndex;
     });
   }
 
-  bool _isMatchingComplete() {
-    final question = _questions[_currentQuestion];
+  void _updateSequenceBlank(int position, String number) {
+    setState(() {
+      _sequenceFilledBlanks[_currentQuestion] ??= {};
+      _sequenceFilledBlanks[_currentQuestion]![position] = number;
+      _dragItems.remove(number);
+    });
+  }
+
+  bool _isMatchingComplete(int questionIndex) {
+    final question = _questions[questionIndex];
     if (question['type'] != 'matching') return true;
-    
     final leftItems = question['leftItems'] as List;
-    return _matchingSelections.length == leftItems.length;
+    final selections = _matchingSelections[questionIndex];
+    if (selections == null) return false;
+    return selections.length == leftItems.length;
+  }
+
+  bool _isDragDropComplete(int questionIndex) {
+    final question = _questions[questionIndex];
+    if (question['type'] != 'drag_drop') return true;
+    final correctAnswer = question['correctAnswer'] as List;
+    final blanks = _sequenceFilledBlanks[questionIndex];
+    if (blanks == null) return false;
+    return blanks.length == correctAnswer.length;
   }
 
   void _answerQuestion(dynamic answer) {
-    if (!_answeredQuestions[_currentQuestion]) {
-      setState(() {
-        _answeredQuestions[_currentQuestion] = true;
-        _userAnswers[_currentQuestion] = answer;
+    if (_answeredQuestions[_currentQuestion]) return;
+    setState(() {
+      _answeredQuestions[_currentQuestion] = true;
+      _userAnswers[_currentQuestion] = answer;
 
-        final question = _questions[_currentQuestion];
-        bool isCorrect = false;
+      final question = _questions[_currentQuestion];
+      bool isCorrect = false;
 
-        if (question['type'] == 'multiple_choice') {
-          isCorrect = answer == question['correctAnswer'];
-        } else if (question['type'] == 'fill_blank') {
-          isCorrect = answer.toString().trim() == question['correctAnswer'].toString();
-        } else if (question['type'] == 'matching') {
-          isCorrect = _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
-        } else if (question['type'] == 'drag_drop') {
-          isCorrect = _checkDragDropAnswer(answer as List<String>, question['correctAnswer']);
-        } else if (question['type'] == 'true_false') {
-          isCorrect = answer == question['correctAnswer'];
-        } else if (question['type'] == 'circle_answer') {
-          isCorrect = answer == question['correctAnswer'];
-        } else if (question['type'] == 'write_number') {
-          isCorrect = answer.toString().trim() == question['correctAnswer'].toString();
-        }
+      if (question['type'] == 'multiple_choice') {
+        isCorrect = answer == question['correctAnswer'];
+      } else if (question['type'] == 'fill_blank' || question['type'] == 'write_number') {
+        isCorrect = answer.toString().trim() == question['correctAnswer'].toString();
+      } else if (question['type'] == 'matching') {
+        isCorrect = _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
+      } else if (question['type'] == 'drag_drop') {
+        isCorrect = _checkDragDropAnswer(answer as List<String>, question['correctAnswer']);
+      } else if (question['type'] == 'true_false') {
+        isCorrect = answer == question['correctAnswer'];
+      } else if (question['type'] == 'circle_answer') {
+        isCorrect = answer == question['correctAnswer'];
+      }
 
-        if (isCorrect) {
-          _score++;
-        }
-        
-        if (_answeredQuestions.every((answered) => answered)) {
-          _exerciseCompleted = true;
-          _recordExerciseResults();
-        }
-      });
-    }
+      if (isCorrect) _score++;
+
+      if (_answeredQuestions.every((answered) => answered)) {
+        _exerciseCompleted = true;
+        _recordExerciseResults();
+      }
+    });
   }
 
   bool _checkMatchingAnswer(Map<int, int> userMatches, List<int> correctMatches) {
@@ -11237,267 +11314,63 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
 
   void _recordExerciseResults() {
     final percentage = (_score / _questions.length * 100).toInt();
-    
     progressManager.recordExerciseScore(
-      widget.lessonName,
-      widget.language,
-      0,
+      widget.lessonName, widget.language, 0,
       'Whole Numbers Comprehensive Exercise',
-      _score,
-      _questions.length,
-      _score,
-      percentage.toDouble(),
+      _score, _questions.length, _score, percentage.toDouble(),
     );
   }
 
   void _nextQuestion() {
     if (_currentQuestion < _questions.length - 1) {
-      setState(() {
-        _currentQuestion++;
-        _initQuestion();
-      });
+      setState(() { _currentQuestion++; _initQuestion(); });
     }
   }
 
   void _previousQuestion() {
     if (_currentQuestion > 0) {
-      setState(() {
-        _currentQuestion--;
-        _initQuestion();
-      });
+      setState(() { _currentQuestion--; _initQuestion(); });
     }
   }
 
   void _restartExercise() {
     setState(() {
-      _currentQuestion = 0;
-      _score = 0;
-      _exerciseCompleted = false;
+      _currentQuestion = 0; _score = 0; _exerciseCompleted = false;
       _userAnswers = List.filled(_questions.length, null);
       _answeredQuestions = List.filled(_questions.length, false);
+      _matchingSelections.clear(); _sequenceFilledBlanks.clear();
       _initQuestion();
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_exerciseCompleted) {
-      return _buildResultsScreen();
+  void _submitInteractiveAnswer(Map<String, dynamic> question) {
+    if (question['type'] == 'matching') {
+      final matches = _matchingSelections[_currentQuestion];
+      if (matches == null || matches.length != (question['leftItems'] as List).length) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Please complete all matches first'), duration: Duration(seconds: 2)));
+        return;
+      }
+      _answerQuestion(matches);
+    } else if (question['type'] == 'drag_drop') {
+      if (!_isDragDropComplete(_currentQuestion)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Please fill all blanks'), duration: Duration(seconds: 2)));
+        return;
+      }
+      final blanks = _sequenceFilledBlanks[_currentQuestion]!;
+      final blankPositions = question['blankPositions'] as List;
+      final List<String> answerList = [];
+      for (int i = 0; i < blankPositions.length; i++) {
+        answerList.add(blanks[blankPositions[i]] ?? '');
+      }
+      _answerQuestion(answerList);
     }
-
-    final question = _questions[_currentQuestion];
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Whole Numbers Exercise',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // Progress header
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: _getTypeColor(question['type']).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _getTypeColor(question['type']), width: 1.5),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Question ${_currentQuestion + 1}/${_questions.length}',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.04,
-                            fontWeight: FontWeight.bold,
-                            color: _getTypeColor(question['type']),
-                          ),
-                        ),
-                        Text(
-                          _getQuestionTypeTitle(question['type']),
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            color: _getTypeColor(question['type']).withOpacity(0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.amber, width: 1.5),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.star, color: Colors.amber, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$_score',
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.04,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Question card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.black, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(4, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Question text
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        question['question'] as String,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.045,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Visual content based on question type
-                    if (question['type'] == 'multiple_choice')
-                      _buildMultipleChoice(question, screenWidth)
-                    else if (question['type'] == 'fill_blank')
-                      _buildFillBlank(question, screenWidth)
-                    else if (question['type'] == 'matching')
-                      _buildMatching(question, screenWidth)
-                    else if (question['type'] == 'drag_drop' && _dragItemsInitialized)
-                      _buildDragDrop(question, screenWidth)
-                    else if (question['type'] == 'true_false')
-                      _buildTrueFalse(question, screenWidth)
-                    else if (question['type'] == 'circle_answer')
-                      _buildCircleAnswer(question, screenWidth)
-                    else if (question['type'] == 'write_number')
-                      _buildWriteNumber(question, screenWidth),
-
-                    const SizedBox(height: 20),
-
-                    // Explanation
-                    if (_answeredQuestions[_currentQuestion])
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: _isAnswerCorrect(question) ? Colors.green[50] : Colors.red[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _isAnswerCorrect(question) ? Colors.green : Colors.red,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          _isAnswerCorrect(question)
-                              ? '✓ Correct! ${question['explanation'] as String}'
-                              : '✗ ${question['explanation'] as String}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: screenWidth > 600 ? 15 : 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Navigation buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1.5),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: _currentQuestion > 0 ? _previousQuestion : null,
-                      child: const Text('Previous', style: TextStyle(fontSize: 15)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1.5),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null,
-                      child: Text(
-                        _currentQuestion == _questions.length - 1 ? 'Finish' : 'Next',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   bool _isAnswerCorrect(Map<String, dynamic> question) {
     final answer = _userAnswers[_currentQuestion];
     if (answer == null) return false;
-    
     if (question['type'] == 'multiple_choice' || question['type'] == 'circle_answer') {
       return answer == question['correctAnswer'];
     } else if (question['type'] == 'fill_blank' || question['type'] == 'write_number') {
@@ -11538,899 +11411,469 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
     }
   }
 
-  // ===== MULTIPLE CHOICE BUILDER =====
-  Widget _buildMultipleChoice(Map<String, dynamic> question, double screenWidth) {
-    return Column(
-      children: [
-        if (question.containsKey('objects'))
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.blue, width: 1.5),
-            ),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: (question['objects'] as List).map((obj) {
-                return Container(
-                  padding: const EdgeInsets.all(4),
-                  child: Text(
-                    obj as String,
-                    style: const TextStyle(fontSize: 28),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        
-        const SizedBox(height: 16),
+  @override
+  Widget build(BuildContext context) {
+    if (_exerciseCompleted) return _buildResultsScreen();
 
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: screenWidth > 600 ? 2.2 : 2.0,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: (question['options'] as List).length,
-          itemBuilder: (context, index) {
-            final isAnswered = _answeredQuestions[_currentQuestion];
-            final isSelected = _userAnswers[_currentQuestion] == index;
-            final isCorrect = index == (question['correctAnswer'] as int);
-
-            Color buttonColor = Colors.white;
-            if (isAnswered) {
-              if (isSelected && isCorrect) {
-                buttonColor = Colors.green;
-              } else if (isSelected && !isCorrect) {
-                buttonColor = Colors.red;
-              } else if (isCorrect) {
-                buttonColor = Colors.green[100]!;
-              }
-            }
-
-            return GestureDetector(
-              onTap: isAnswered ? null : () => _answerQuestion(index),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  color: buttonColor,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isSelected ? Colors.black : Colors.grey[300]!,
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text(
-                      '${(question['options'] as List)[index]}',
-                      style: TextStyle(
-                        fontSize: screenWidth > 600 ? 18 : 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  // ===== FILL IN THE BLANK BUILDER =====
-  Widget _buildFillBlank(Map<String, dynamic> question, double screenWidth) {
-    TextEditingController controller = TextEditingController();
-    
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-          decoration: BoxDecoration(
-            color: Colors.green[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.green, width: 1.5),
-          ),
-          child: Text(
-            question['question'] as String,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        
-        const SizedBox(height: 20),
-        
-        if (!_answeredQuestions[_currentQuestion])
-          Container(
-            width: screenWidth * 0.4,
-            child: TextField(
-              controller: controller,
-              textAlign: TextAlign.center,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                hintText: 'Enter number',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.green, width: 2),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.green, width: 2),
-                ),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-          )
-        else if (_userAnswers[_currentQuestion] != null)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.blue, width: 2),
-            ),
-            child: Text(
-              'Your answer: ${_userAnswers[_currentQuestion]}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-        
-        const SizedBox(height: 16),
-        
-        if (!_answeredQuestions[_currentQuestion])
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(120, 40),
-            ),
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                _answerQuestion(controller.text);
-              }
-            },
-            child: const Text('Submit', style: TextStyle(fontSize: 16)),
-          ),
-      ],
-    );
-  }
-
-  // ===== FIXED MATCHING TYPE BUILDER - EASY TO UNDERSTAND =====
-  Widget _buildMatching(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    final rightItems = question['rightItems'] as List;
-    
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.purple[50],
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.purple, width: 1.5),
-      ),
-      child: Column(
-        children: [
-          // Headers
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.purple[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Number / Group',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.purple[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Match',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Matching rows - each with its own dropdown
-          ...List.generate(leftItems.length, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  // Left item
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Text(
-                        leftItems[index] as String,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 10),
-                  
-                  // Right dropdown
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.purple[300]!),
-                      ),
-                      child: DropdownButton<int>(
-                        value: _matchingSelections[index],
-                        hint: const Text('Select', style: TextStyle(fontSize: 13)),
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconSize: 22,
-                        items: List.generate(rightItems.length, (i) {
-                          return DropdownMenuItem<int>(
-                            value: i,
-                            child: Text(rightItems[i] as String, style: const TextStyle(fontSize: 13)),
-                          );
-                        }),
-                        onChanged: _answeredQuestions[_currentQuestion] 
-                            ? null 
-                            : (value) {
-                                _updateMatchingSelection(index, value!);
-                                
-                                // Check if all matches are selected
-                                if (_matchingSelections.length == leftItems.length) {
-                                  // Submit after a short delay to ensure UI updates
-                                  Future.delayed(const Duration(milliseconds: 100), () {
-                                    if (mounted && !_answeredQuestions[_currentQuestion]) {
-                                      _answerQuestion(Map<int, int>.from(_matchingSelections));
-                                    }
-                                  });
-                                }
-                              },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  // ===== DRAG AND DROP BUILDER =====
-  Widget _buildDragDrop(Map<String, dynamic> question, double screenWidth) {
-    final sequence = question['sequence'] as List;
-    final blankPositions = question['blankPositions'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Sequence with blanks
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.orange[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Complete the sequence:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: List.generate(sequence.length, (index) {
-                      if (blankPositions.contains(index)) {
-                        final filledIndex = blankPositions.indexOf(index);
-                        final filledValue = _dragTargets[filledIndex];
-                        return Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: filledValue.isEmpty ? Colors.orange[100] : Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: filledValue.isEmpty ? Colors.orange : Colors.orange[700]!,
-                              width: 2,
-                            ),
-                          ),
-                          child: DragTarget<String>(
-                            builder: (context, candidateData, rejectedData) {
-                              return Center(
-                                child: Text(
-                                  filledValue,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              );
-                            },
-                            onWillAccept: (data) {
-                              return filledValue.isEmpty;
-                            },
-                            onAccept: (data) {
-                              setState(() {
-                                _dragTargets[filledIndex] = data;
-                                _dragItems.remove(data);
-                              });
-                            },
-                          ),
-                        );
-                      } else {
-                        return Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.orange, width: 2),
-                          ),
-                          child: Center(
-                            child: Text(
-                              sequence[index] as String,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                    }),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Drag items
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.teal[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.teal, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag numbers:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _dragItems.map((item) {
-                      return Draggable<String>(
-                        data: item,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.teal,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              item,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.teal, width: 2),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            if (!_dragTargets.contains('') && !_answeredQuestions[_currentQuestion])
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(160, 44),
-                ),
-                onPressed: () {
-                  final List<String> answer = [];
-                  for (int i = 0; i < blankPositions.length; i++) {
-                    answer.add(_dragTargets[i]);
-                  }
-                  _answerQuestion(answer);
-                },
-                child: const Text('Submit Answer', style: TextStyle(fontSize: 16)),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ===== TRUE/FALSE BUILDER =====
-  Widget _buildTrueFalse(Map<String, dynamic> question, double screenWidth) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.red[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.red, width: 1.5),
-          ),
-          child: Text(
-            question['question'] as String,
-            style: const TextStyle(fontSize: 18),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        
-        const SizedBox(height: 20),
-        
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // True button
-            GestureDetector(
-              onTap: _answeredQuestions[_currentQuestion] ? null : () => _answerQuestion(true),
-              child: Container(
-                width: 100,
-                height: 60,
-                margin: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == true
-                      ? (_isAnswerCorrect(question) ? Colors.green : Colors.red)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == true
-                        ? (_isAnswerCorrect(question) ? Colors.green : Colors.red)
-                        : Colors.green,
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    'TRUE',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == true
-                          ? Colors.white
-                          : Colors.green,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            
-            // False button
-            GestureDetector(
-              onTap: _answeredQuestions[_currentQuestion] ? null : () => _answerQuestion(false),
-              child: Container(
-                width: 100,
-                height: 60,
-                margin: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == false
-                      ? (_isAnswerCorrect(question) ? Colors.green : Colors.red)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == false
-                        ? (_isAnswerCorrect(question) ? Colors.green : Colors.red)
-                        : Colors.red,
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    'FALSE',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == false
-                          ? Colors.white
-                          : Colors.red,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ===== CIRCLE THE ANSWER BUILDER =====
-  Widget _buildCircleAnswer(Map<String, dynamic> question, double screenWidth) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.teal[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.teal, width: 1.5),
-          ),
-          child: Text(
-            question['question'] as String,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        
-        const SizedBox(height: 20),
-        
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: screenWidth > 600 ? 2.5 : 2.2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: (question['options'] as List).length,
-          itemBuilder: (context, index) {
-            final isAnswered = _answeredQuestions[_currentQuestion];
-            final isSelected = _userAnswers[_currentQuestion] == index;
-            final isCorrect = index == (question['correctAnswer'] as int);
-
-            Color buttonColor = Colors.white;
-            if (isAnswered) {
-              if (isSelected && isCorrect) {
-                buttonColor = Colors.green;
-              } else if (isSelected && !isCorrect) {
-                buttonColor = Colors.red;
-              } else if (isCorrect) {
-                buttonColor = Colors.green[100]!;
-              }
-            }
-
-            return GestureDetector(
-              onTap: isAnswered ? null : () => _answerQuestion(index),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: buttonColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected ? Colors.black : Colors.teal,
-                    width: isSelected ? 3 : 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    (question['options'] as List)[index] as String,
-                    style: TextStyle(
-                      fontSize: screenWidth > 600 ? 18 : 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  // ===== WRITE THE NUMBER BUILDER =====
-  Widget _buildWriteNumber(Map<String, dynamic> question, double screenWidth) {
-    TextEditingController controller = TextEditingController();
-    
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.amber[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.amber, width: 1.5),
-          ),
-          child: Text(
-            question['question'] as String,
-            style: const TextStyle(fontSize: 18),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        
-        const SizedBox(height: 20),
-        
-        if (!_answeredQuestions[_currentQuestion])
-          Container(
-            width: screenWidth * 0.5,
-            child: TextField(
-              controller: controller,
-              textAlign: TextAlign.center,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                hintText: 'Type number',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.amber, width: 2),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.amber, width: 2),
-                ),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-          )
-        else if (_userAnswers[_currentQuestion] != null)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.blue, width: 2),
-            ),
-            child: Text(
-              'Your answer: ${_userAnswers[_currentQuestion]}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-        
-        const SizedBox(height: 16),
-        
-        if (!_answeredQuestions[_currentQuestion])
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber,
-              foregroundColor: Colors.black,
-              minimumSize: const Size(120, 44),
-            ),
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                _answerQuestion(controller.text);
-              }
-            },
-            child: const Text('Submit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ),
-      ],
-    );
-  }
-
-  // ===== RESULTS SCREEN =====
-  Widget _buildResultsScreen() {
-    final percentage = (_score / _questions.length * 100).round();
+    final question = _questions[_currentQuestion];
     final screenWidth = MediaQuery.of(context).size.width;
-
-    String message;
-    String emoji;
-    Color color;
-
-    if (percentage == 100) {
-      message = 'Perfect Score!';
-      emoji = '🏆';
-      color = Colors.amber;
-    } else if (percentage >= 80) {
-      message = 'Great Job!';
-      emoji = '🎉';
-      color = Colors.green;
-    } else if (percentage >= 60) {
-      message = 'Good Try!';
-      emoji = '👍';
-      color = Colors.blue;
-    } else {
-      message = 'Keep Practicing!';
-      emoji = '💪';
-      color = Colors.orange;
-    }
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Exercise Complete'),
-        centerTitle: true,
-        elevation: 0,
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)),
+        title: const Text('Whole Numbers Exercise', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        centerTitle: true, elevation: 0,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                emoji,
-                style: const TextStyle(fontSize: 80),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: _getTypeColor(question['type']).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _getTypeColor(question['type']), width: 1.5),
               ),
-              const SizedBox(height: 20),
-              Text(
-                message,
-                style: TextStyle(
-                  fontSize: screenWidth > 600 ? 32 : 28,
-                  fontWeight: FontWeight.bold,
-                  color: color,
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Question ${_currentQuestion + 1}/${_questions.length}',
+                    style: TextStyle(fontSize: screenWidth * 0.04, fontWeight: FontWeight.bold,
+                      color: _getTypeColor(question['type']))),
+                  Text(_getQuestionTypeTitle(question['type']),
+                    style: TextStyle(fontSize: screenWidth * 0.035,
+                      color: _getTypeColor(question['type']).withOpacity(0.8))),
+                ]),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.amber, width: 1.5)),
+                  child: Row(children: [
+                    const Icon(Icons.star, color: Colors.amber, size: 18),
+                    const SizedBox(width: 4),
+                    Text('$_score', style: TextStyle(fontSize: screenWidth * 0.04,
+                      fontWeight: FontWeight.bold, color: Colors.amber[800])),
+                  ]),
                 ),
+              ]),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Question card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white, borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.black, width: 2),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(4, 4))],
               ),
-              const SizedBox(height: 30),
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: color, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+              child: Column(children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(question['question'] as String,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: screenWidth * 0.045, fontWeight: FontWeight.bold),
+                    maxLines: 3, overflow: TextOverflow.ellipsis),
                 ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Your Score',
-                      style: TextStyle(fontSize: 18),
+                const SizedBox(height: 20),
+
+                if (question['type'] == 'multiple_choice') _buildMultipleChoice(question, screenWidth)
+                else if (question['type'] == 'fill_blank') _buildFillBlank(question, screenWidth)
+                else if (question['type'] == 'matching') _buildMatching(question, screenWidth)
+                else if (question['type'] == 'drag_drop' && _dragItemsInitialized) _buildDragDrop(question, screenWidth)
+                else if (question['type'] == 'true_false') _buildTrueFalse(question, screenWidth)
+                else if (question['type'] == 'circle_answer') _buildCircleAnswer(question, screenWidth)
+                else if (question['type'] == 'write_number') _buildWriteNumber(question, screenWidth),
+
+                const SizedBox(height: 15),
+
+                if (!_answeredQuestions[_currentQuestion] &&
+                    (question['type'] == 'matching' || question['type'] == 'drag_drop'))
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white,
+                      minimumSize: const Size(180, 44), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
+                    onPressed: () => _submitInteractiveAnswer(question),
+                    child: const Text('Submit Answer', style: TextStyle(fontSize: 16)),
+                  ),
+
+                const SizedBox(height: 15),
+
+                if (_answeredQuestions[_currentQuestion])
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _isAnswerCorrect(question) ? Colors.green[50] : Colors.red[50],
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _isAnswerCorrect(question) ? Colors.green : Colors.red, width: 1.5),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      '$_score/${_questions.length}',
-                      style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '$percentage%',
-                      style: const TextStyle(fontSize: 28),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 40),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          side: const BorderSide(color: Colors.black, width: 1.5),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      onPressed: _restartExercise,
-                      child: const Text('Try Again', style: TextStyle(fontSize: 16)),
+                    child: Text(
+                      _isAnswerCorrect(question)
+                          ? '✓ Correct! ${question['explanation']}'
+                          : '✗ ${question['explanation']}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: screenWidth > 600 ? 15 : 13, fontWeight: FontWeight.w500),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          side: const BorderSide(color: Colors.black, width: 1.5),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Back to Lessons', style: TextStyle(fontSize: 16)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ]),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Navigation
+            Row(children: [
+              Expanded(child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)),
+                  padding: const EdgeInsets.symmetric(vertical: 14)),
+                onPressed: _currentQuestion > 0 ? _previousQuestion : null,
+                child: const Text('Previous', style: TextStyle(fontSize: 15)))),
+              const SizedBox(width: 12),
+              Expanded(child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)),
+                  padding: const EdgeInsets.symmetric(vertical: 14)),
+                onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null,
+                child: Text(_currentQuestion == _questions.length - 1 ? 'Finish' : 'Next',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)))),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMultipleChoice(Map<String, dynamic> question, double sw) {
+    return Column(children: [
+      if (question.containsKey('objects'))
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.blue, width: 1.5)),
+          child: Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center,
+            children: (question['objects'] as List).map((obj) =>
+              Text(obj as String, style: const TextStyle(fontSize: 28))).toList()),
+        ),
+      const SizedBox(height: 16),
+      GridView.builder(
+        shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2, childAspectRatio: sw > 600 ? 2.2 : 2.0, crossAxisSpacing: 8, mainAxisSpacing: 8),
+        itemCount: (question['options'] as List).length,
+        itemBuilder: (context, index) {
+          final isAnswered = _answeredQuestions[_currentQuestion];
+          final isSelected = _userAnswers[_currentQuestion] == index;
+          final isCorrect = index == (question['correctAnswer'] as int);
+          Color c = Colors.white;
+          if (isAnswered) {
+            if (isSelected && isCorrect) c = Colors.green;
+            else if (isSelected) c = Colors.red;
+            else if (isCorrect) c = Colors.green[100]!;
+          }
+          return GestureDetector(
+            onTap: isAnswered ? null : () => _answerQuestion(index),
+            child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isSelected ? Colors.black : Colors.grey[300]!, width: isSelected ? 2 : 1)),
+              child: Center(child: Padding(padding: const EdgeInsets.all(6),
+                child: Text('${(question['options'] as List)[index]}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: sw > 600 ? 18 : 16, fontWeight: FontWeight.bold))))),
+          );
+        }),
+    ]);
+  }
+
+  Widget _buildFillBlank(Map<String, dynamic> question, double sw) {
+    final controller = TextEditingController();
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green, width: 1.5)),
+        child: Text(question['question'] as String,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+      ),
+      const SizedBox(height: 20),
+      if (!_answeredQuestions[_currentQuestion])
+        SizedBox(width: sw * 0.4,
+          child: TextField(controller: controller, textAlign: TextAlign.center,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(hintText: 'Enter number',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.green, width: 2)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.green, width: 2)),
+              filled: true, fillColor: Colors.white),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)))
+      else if (_userAnswers[_currentQuestion] != null)
+        Container(padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.blue, width: 2)),
+          child: Text('Your answer: ${_userAnswers[_currentQuestion]}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+      const SizedBox(height: 16),
+      if (!_answeredQuestions[_currentQuestion])
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, minimumSize: const Size(120, 40)),
+          onPressed: () { if (controller.text.isNotEmpty) _answerQuestion(controller.text); },
+          child: const Text('Submit', style: TextStyle(fontSize: 16))),
+    ]);
+  }
+
+  Widget _buildMatching(Map<String, dynamic> question, double sw) {
+    final leftItems = question['leftItems'] as List;
+    final rightItems = question['rightItems'] as List;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.purple[200]!, width: 1.5)),
+      child: Column(children: [
+        Row(children: [
+          Expanded(child: Container(padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)),
+            child: const Text('Number/Group', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center))),
+          const SizedBox(width: 8),
+          Expanded(child: Container(padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)),
+            child: const Text('Match', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center))),
+        ]),
+        const SizedBox(height: 8),
+        ...List.generate(leftItems.length, (index) => Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(children: [
+            Expanded(child: Container(padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.grey[300]!)),
+              child: Text(leftItems[index] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)))),
+            const SizedBox(width: 8),
+            Expanded(child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.purple[300]!)),
+              child: DropdownButton<int>(
+                value: _matchingSelections[_currentQuestion]?[index],
+                hint: const Text('Select', style: TextStyle(fontSize: 12)),
+                isExpanded: true, underline: const SizedBox(), iconSize: 20,
+                items: List.generate(rightItems.length, (i) => DropdownMenuItem<int>(
+                  value: i, child: Text(rightItems[i] as String, style: const TextStyle(fontSize: 12)))),
+                onChanged: _answeredQuestions[_currentQuestion] ? null : (value) => _updateMatchingSelection(index, value!),
+              ))),
+          ]),
+        )),
+      ]),
+    );
+  }
+
+  Widget _buildDragDrop(Map<String, dynamic> question, double sw) {
+    final sequence = question['sequence'] as List;
+    final blankPositions = question['blankPositions'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.orange, width: 1.5)),
+        child: Column(children: [
+          const Text('Complete the sequence:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 12),
+          Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6,
+            children: List.generate(sequence.length, (index) {
+              if (blankPositions.contains(index)) {
+                final blankIndex = blankPositions.indexOf(index);
+                final blanks = _sequenceFilledBlanks[_currentQuestion] ?? {};
+                final filledValue = blanks[index];
+                return DragTarget<String>(
+                  builder: (ctx, cd, rd) => Container(width: 50, height: 45,
+                    decoration: BoxDecoration(
+                      color: filledValue == null ? Colors.orange[100] : Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: filledValue == null ? Colors.orange : Colors.orange[700]!, width: 1.5)),
+                    child: Center(child: Text(filledValue ?? '?',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)))),
+                  onWillAccept: (d) => _sequenceFilledBlanks[_currentQuestion]?[index] == null,
+                  onAccept: (d) { _updateSequenceBlank(index, d); ss(() {}); },
+                );
+              }
+              return Container(width: 45, height: 45,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.orange, width: 1.5)),
+                child: Center(child: Text(sequence[index] as String,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold))));
+            }),
           ),
-        ),
+        ]),
       ),
+      const SizedBox(height: 15),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.teal[50], borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.teal, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag numbers:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: _dragItems.map((item) => Draggable<String>(
+            data: item,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.teal, borderRadius: BorderRadius.circular(6),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 3, offset: const Offset(0, 1))]),
+              child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)),
+              child: Text(item, style: const TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.teal, width: 1.5)),
+              child: Text(item, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+          )).toList()),
+        ]),
+      ),
+    ]));
+  }
+
+  Widget _buildTrueFalse(Map<String, dynamic> question, double sw) {
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red, width: 1.5)),
+        child: Text(question['question'] as String, style: const TextStyle(fontSize: 18), textAlign: TextAlign.center),
+      ),
+      const SizedBox(height: 20),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        GestureDetector(
+          onTap: _answeredQuestions[_currentQuestion] ? null : () => _answerQuestion(true),
+          child: Container(width: 100, height: 60, margin: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == true
+                  ? (_isAnswerCorrect(question) ? Colors.green : Colors.red) : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == true
+                  ? (_isAnswerCorrect(question) ? Colors.green : Colors.red) : Colors.green, width: 2)),
+            child: Center(child: Text('TRUE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
+              color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == true ? Colors.white : Colors.green)))),
+        ),
+        GestureDetector(
+          onTap: _answeredQuestions[_currentQuestion] ? null : () => _answerQuestion(false),
+          child: Container(width: 100, height: 60, margin: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == false
+                  ? (_isAnswerCorrect(question) ? Colors.green : Colors.red) : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == false
+                  ? (_isAnswerCorrect(question) ? Colors.green : Colors.red) : Colors.red, width: 2)),
+            child: Center(child: Text('FALSE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
+              color: _answeredQuestions[_currentQuestion] && _userAnswers[_currentQuestion] == false ? Colors.white : Colors.red)))),
+        ),
+      ]),
+    ]);
+  }
+
+  Widget _buildCircleAnswer(Map<String, dynamic> question, double sw) {
+    return GridView.builder(
+      shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2, childAspectRatio: sw > 600 ? 2.5 : 2.2, crossAxisSpacing: 12, mainAxisSpacing: 12),
+      itemCount: (question['options'] as List).length,
+      itemBuilder: (context, index) {
+        final isAnswered = _answeredQuestions[_currentQuestion];
+        final isSelected = _userAnswers[_currentQuestion] == index;
+        final isCorrect = index == (question['correctAnswer'] as int);
+        Color c = Colors.white;
+        if (isAnswered) {
+          if (isSelected && isCorrect) c = Colors.green;
+          else if (isSelected) c = Colors.red;
+          else if (isCorrect) c = Colors.green[100]!;
+        }
+        return GestureDetector(
+          onTap: isAnswered ? null : () => _answerQuestion(index),
+          child: Container(
+            decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isSelected ? Colors.black : Colors.teal, width: isSelected ? 3 : 2)),
+            child: Center(child: Text((question['options'] as List)[index] as String,
+              style: TextStyle(fontSize: sw > 600 ? 18 : 16, fontWeight: FontWeight.bold)))),
+        );
+      });
+  }
+
+  Widget _buildWriteNumber(Map<String, dynamic> question, double sw) {
+    final controller = TextEditingController();
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.amber[50], borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.amber, width: 1.5)),
+        child: Text(question['question'] as String, style: const TextStyle(fontSize: 18), textAlign: TextAlign.center),
+      ),
+      const SizedBox(height: 20),
+      if (!_answeredQuestions[_currentQuestion])
+        SizedBox(width: sw * 0.5,
+          child: TextField(controller: controller, textAlign: TextAlign.center, keyboardType: TextInputType.number,
+            decoration: InputDecoration(hintText: 'Type number',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.amber, width: 2)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.amber, width: 2)),
+              filled: true, fillColor: Colors.white),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)))
+      else if (_userAnswers[_currentQuestion] != null)
+        Container(padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.blue, width: 2)),
+          child: Text('Your answer: ${_userAnswers[_currentQuestion]}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+      const SizedBox(height: 16),
+      if (!_answeredQuestions[_currentQuestion])
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(120, 44)),
+          onPressed: () { if (controller.text.isNotEmpty) _answerQuestion(controller.text); },
+          child: const Text('Submit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+    ]);
+  }
+
+  Widget _buildResultsScreen() {
+    final percentage = (_score / _questions.length * 100).round();
+    final sw = MediaQuery.of(context).size.width;
+    String message; String emoji; Color color;
+    if (percentage == 100) { message = 'Perfect Score!'; emoji = '🏆'; color = Colors.amber; }
+    else if (percentage >= 80) { message = 'Great Job!'; emoji = '🎉'; color = Colors.green; }
+    else if (percentage >= 60) { message = 'Good Try!'; emoji = '👍'; color = Colors.blue; }
+    else { message = 'Keep Practicing!'; emoji = '💪'; color = Colors.orange; }
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(backgroundColor: Colors.white,
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)),
+        title: const Text('Exercise Complete'), centerTitle: true, elevation: 0),
+      body: Center(child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Text(emoji, style: const TextStyle(fontSize: 80)),
+        const SizedBox(height: 20),
+        Text(message, style: TextStyle(fontSize: sw > 600 ? 32 : 28, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 30),
+        Container(padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color, width: 3)),
+          child: Column(children: [
+            const Text('Your Score', style: TextStyle(fontSize: 18)),
+            const SizedBox(height: 10),
+            Text('$_score/${_questions.length}', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text('$percentage%', style: const TextStyle(fontSize: 28)),
+          ])),
+        const SizedBox(height: 40),
+        Row(children: [
+          Expanded(child: ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: const BorderSide(color: Colors.black, width: 1.5)),
+              padding: const EdgeInsets.symmetric(vertical: 16)),
+            onPressed: _restartExercise, child: const Text('Try Again', style: TextStyle(fontSize: 16)))),
+          const SizedBox(width: 16),
+          Expanded(child: ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: const BorderSide(color: Colors.black, width: 1.5)),
+              padding: const EdgeInsets.symmetric(vertical: 16)),
+            onPressed: () => Navigator.pop(context), child: const Text('Back to Lessons', style: TextStyle(fontSize: 16)))),
+        ]),
+      ]))),
     );
   }
 }
@@ -12456,167 +11899,104 @@ class _ComparisonComprehensiveExerciseScreenState extends State<ComparisonCompre
   bool _exerciseCompleted = false;
   List<dynamic> _userAnswers = List.filled(15, null);
   List<bool> _answeredQuestions = List.filled(15, false);
-  
-  // For drag and drop
+
   List<String> _dragItems = [];
-  List<String> _dragTargets = [];
-  
-  // For matching type
   Map<int, Map<int, int>> _matchingSelections = {};
-  
-  // For drag drop symbols
-  Map<int, Map<int, String>> _symbolPlacements = {};
-  
-  // For drag drop sequence
+  Map<int, Map<int, String>> _matchFilledBlanks = {};
   Map<int, Map<int, String>> _sequenceFilledBlanks = {};
-  
-  // For drag drop compare
   String? _comparePlacedSymbol;
-  
-  // Track if drag items are initialized
   bool _dragItemsInitialized = false;
 
   final List<Map<String, dynamic>> _questions = [
-    // ===== MULTIPLE CHOICE QUESTIONS (6 items) =====
-    // 1. Compare Groups of Objects
     {
-      'id': 1,
-      'type': 'multiple_choice',
+      'id': 1, 'type': 'multiple_choice',
       'question': 'Which group has MORE objects?',
-      'leftObjects': ['🍎', '🍎', '🍎', '🍎', '🍎', '🍎'],
-      'rightObjects': ['🍎', '🍎', '🍎', '🍎'],
-      'leftCount': 6,
-      'rightCount': 4,
-      'correctAnswer': 0,
-      'options': ['Group A (6 apples)', 'Group B (4 apples)', 'They are equal'],
-      'explanation': 'Group A has 6 apples, Group B has 4 apples. 6 > 4, so Group A has more.',
+      'leftObjects': ['🍎','🍎','🍎','🍎','🍎','🍎'], 'rightObjects': ['🍎','🍎','🍎','🍎'],
+      'leftCount': 6, 'rightCount': 4,
+      'correctAnswer': 0, 'options': ['Group A (6 apples)', 'Group B (4 apples)', 'They are equal'],
+      'explanation': 'Group A has 6 apples, Group B has 4. 6 > 4, so Group A has more.',
     },
-    
-    // 2. Compare Numbers - Smallest
     {
-      'id': 2,
-      'type': 'multiple_choice',
+      'id': 2, 'type': 'multiple_choice',
       'question': 'Which number is the SMALLEST?',
       'numbers': [23, 45, 18, 32],
-      'correctAnswer': 2,
-      'options': ['23', '45', '18', '32'],
+      'correctAnswer': 2, 'options': ['23', '45', '18', '32'],
       'explanation': '18 is the smallest among 23, 45, 18, and 32.',
     },
-    
-    // 3. Comparison Symbols
     {
-      'id': 3,
-      'type': 'multiple_choice',
+      'id': 3, 'type': 'multiple_choice',
       'question': 'What symbol should replace the blank? 56 __ 65',
-      'correctAnswer': 1,
-      'options': ['>', '<', '=', '≠'],
+      'correctAnswer': 1, 'options': ['>', '<', '=', '≠'],
       'explanation': '56 is less than 65, so the correct symbol is <.',
     },
-    
-    // 4. Word Problem
     {
-      'id': 4,
-      'type': 'multiple_choice',
+      'id': 4, 'type': 'multiple_choice',
       'question': 'Mika has 38 stickers. Her friend gave her 12 more. Now she has 50 stickers. Is this greater than, less than, or equal to 45?',
-      'correctAnswer': 0,
-      'options': ['Greater than', 'Less than', 'Equal to', 'Cannot determine'],
+      'correctAnswer': 0, 'options': ['Greater than', 'Less than', 'Equal to', 'Cannot determine'],
       'explanation': '50 is greater than 45.',
     },
-    
-    // 5. Compare with visuals
     {
-      'id': 5,
-      'type': 'multiple_choice',
+      'id': 5, 'type': 'multiple_choice',
       'question': 'Which number is greater than 72?',
-      'correctAnswer': 3,
-      'options': ['69', '70', '71', '81'],
-      'explanation': '81 is greater than 72. The others are less than 72.',
+      'correctAnswer': 3, 'options': ['69', '70', '71', '81'],
+      'explanation': '81 is greater than 72.',
     },
-    
-    // 6. Compare fractions as groups
     {
-      'id': 6,
-      'type': 'multiple_choice',
+      'id': 6, 'type': 'multiple_choice',
       'question': 'Which shows MORE?',
-      'leftObjects': ['🍕', '🍕', '🍕', '🍕'],
-      'rightObjects': ['🍕', '🍕', '🍕'],
-      'leftCount': 4,
-      'rightCount': 3,
-      'correctAnswer': 0,
-      'options': ['Left (4 pizzas)', 'Right (3 pizzas)', 'They are equal'],
+      'leftObjects': ['🍕','🍕','🍕','🍕'], 'rightObjects': ['🍕','🍕','🍕'],
+      'leftCount': 4, 'rightCount': 3,
+      'correctAnswer': 0, 'options': ['Left (4 pizzas)', 'Right (3 pizzas)', 'They are equal'],
       'explanation': '4 pizzas is more than 3 pizzas.',
     },
-
-    // ===== MATCHING TYPE QUESTIONS (4 items) =====
-    // 7. Match number to comparison symbol
     {
-      'id': 7,
-      'type': 'matching',
+      'id': 7, 'type': 'matching',
       'question': 'Match each pair with the correct comparison symbol:',
       'leftItems': ['25 ___ 25', '37 ___ 42', '53 ___ 48', '19 ___ 91'],
       'rightItems': ['=', '<', '>'],
       'correctMatches': [0, 1, 2, 1],
-      'explanation': '25 = 25, 37 < 42, 53 > 48, 19 < 91',
+      'explanation': '25=25, 37<42, 53>48, 19<91',
     },
-    
-    // 8. Match words to comparison symbols
     {
-      'id': 8,
-      'type': 'matching',
+      'id': 8, 'type': 'matching',
       'question': 'Match each word with the correct symbol:',
       'leftItems': ['greater than', 'less than', 'equal to'],
       'rightItems': ['>', '<', '='],
       'correctMatches': [0, 1, 2],
       'explanation': 'Greater than = >, Less than = <, Equal to = =',
     },
-    
-    // 9. Match numbers to comparison statements
     {
-      'id': 9,
-      'type': 'matching',
+      'id': 9, 'type': 'matching',
       'question': 'Match each number pair with the correct relationship:',
       'leftItems': ['32 and 28', '45 and 45', '67 and 76', '54 and 53'],
       'rightItems': ['32 > 28', '45 = 45', '67 < 76', '54 > 53'],
       'correctMatches': [0, 1, 2, 3],
-      'explanation': '32 > 28, 45 = 45, 67 < 76, 54 > 53',
+      'explanation': '32>28, 45=45, 67<76, 54>53',
     },
-    
-    // 10. Match groups to comparison
     {
-      'id': 10,
-      'type': 'matching',
+      'id': 10, 'type': 'matching',
       'question': 'Match each group description with the correct comparison:',
       'leftItems': ['6 apples vs 4 apples', '3 stars vs 7 stars', '5 circles vs 5 circles'],
       'rightItems': ['6 > 4', '3 < 7', '5 = 5'],
       'correctMatches': [0, 1, 2],
-      'explanation': '6 > 4, 3 < 7, 5 = 5',
+      'explanation': '6>4, 3<7, 5=5',
     },
-
-    // ===== DRAG AND DROP QUESTIONS (5 items) =====
-    // 11. Drag and drop numbers in order (least to greatest)
     {
-      'id': 11,
-      'type': 'drag_drop_order',
+      'id': 11, 'type': 'drag_drop_order',
       'question': 'Arrange the numbers from LEAST to GREATEST by dragging:',
       'items': ['15', '8', '23', '12', '5'],
       'correctOrder': ['5', '8', '12', '15', '23'],
       'explanation': 'Least to greatest: 5, 8, 12, 15, 23',
     },
-    
-    // 12. Drag and drop numbers in order (greatest to least)
     {
-      'id': 12,
-      'type': 'drag_drop_order',
+      'id': 12, 'type': 'drag_drop_order',
       'question': 'Arrange the numbers from GREATEST to LEAST by dragging:',
       'items': ['42', '37', '51', '29', '45'],
       'correctOrder': ['51', '45', '42', '37', '29'],
       'explanation': 'Greatest to least: 51, 45, 42, 37, 29',
     },
-    
-    // 13. Drag and drop comparison symbols
     {
-      'id': 13,
-      'type': 'drag_drop_symbols',
+      'id': 13, 'type': 'drag_drop_symbols',
       'question': 'Drag the correct symbols to complete each comparison:',
       'equations': [
         {'left': '25', 'right': '32', 'correct': '<'},
@@ -12626,13 +12006,10 @@ class _ComparisonComprehensiveExerciseScreenState extends State<ComparisonCompre
       ],
       'symbols': ['>', '<', '=', '>', '<', '='],
       'correctAnswer': ['<', '>', '=', '<'],
-      'explanation': '25 < 32, 47 > 39, 58 = 58, 63 < 71',
+      'explanation': '25<32, 47>39, 58=58, 63<71',
     },
-    
-    // 14. Drag and drop to complete the sequence
     {
-      'id': 14,
-      'type': 'drag_drop_sequence',
+      'id': 14, 'type': 'drag_drop_sequence',
       'question': 'Complete the sequence by dragging the correct numbers:',
       'sequence': ['10', '20', '__', '40', '__'],
       'availableNumbers': ['30', '50', '25', '35', '45'],
@@ -12640,16 +12017,12 @@ class _ComparisonComprehensiveExerciseScreenState extends State<ComparisonCompre
       'blankPositions': [2, 4],
       'explanation': 'Counting by 10s: 10, 20, 30, 40, 50',
     },
-    
-    // 15. Drag and drop to compare groups
     {
-      'id': 15,
-      'type': 'drag_drop_compare',
+      'id': 15, 'type': 'drag_drop_compare',
       'question': 'Drag the correct comparison symbol between the groups:',
-      'leftGroup': ['⭐', '⭐', '⭐', '⭐', '⭐'],
-      'rightGroup': ['⭐', '⭐', '⭐'],
-      'leftCount': 5,
-      'rightCount': 3,
+      'leftGroup': ['⭐','⭐','⭐','⭐','⭐'],
+      'rightGroup': ['⭐','⭐','⭐'],
+      'leftCount': 5, 'rightCount': 3,
       'correctSymbol': '>',
       'symbols': ['>', '<', '='],
       'explanation': '5 stars > 3 stars',
@@ -12657,1754 +12030,521 @@ class _ComparisonComprehensiveExerciseScreenState extends State<ComparisonCompre
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _initQuestion();
-  }
+  void initState() { super.initState(); _initQuestion(); }
 
   void _initQuestion() {
     _dragItemsInitialized = false;
-    _initDragItems();
-    _initMatchingSelections();
-    _initSymbolPlacements();
-    _initSequenceBlanks();
-    _initCompareSymbol();
-  }
-
-  void _initDragItems() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_order') {
-      _dragItems = List<String>.from(question['items'] as List);
+    _comparePlacedSymbol = null;
+    final q = _questions[_currentQuestion];
+    if (q['type'] == 'drag_drop_order') {
+      _dragItems = List<String>.from(q['items'] as List);
       _dragItems.shuffle();
-      _dragTargets = List.filled((question['items'] as List).length, '');
-    } else if (question['type'] == 'drag_drop_symbols') {
-      _dragItems = List<String>.from(question['symbols'] as List);
+      _matchFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'drag_drop_symbols') {
+      _dragItems = List<String>.from(q['symbols'] as List);
       _dragItems.shuffle();
-      _dragTargets = List.filled((question['equations'] as List).length, '');
-    } else if (question['type'] == 'drag_drop_sequence') {
-      _dragItems = List<String>.from(question['availableNumbers'] as List);
+      _matchFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'drag_drop_sequence') {
+      _dragItems = List<String>.from(q['availableNumbers'] as List);
       _dragItems.shuffle();
-      _dragTargets = List.filled((question['correctAnswer'] as List).length, '');
-    } else if (question['type'] == 'drag_drop_compare') {
-      _dragItems = List<String>.from(question['symbols'] as List);
+      _sequenceFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'drag_drop_compare') {
+      _dragItems = List<String>.from(q['symbols'] as List);
       _dragItems.shuffle();
-      _dragTargets = ['']; // One target for the symbol
+    } else if (q['type'] == 'matching') {
+      _matchingSelections[_currentQuestion] = {};
     }
     _dragItemsInitialized = true;
   }
 
-  void _initMatchingSelections() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'matching') {
-      _matchingSelections[_currentQuestion] = {};
-    }
-  }
+  void _updateMatchingSelection(int li, int ri) { setState(() { _matchingSelections[_currentQuestion] ??= {}; _matchingSelections[_currentQuestion]![li] = ri; }); }
 
-  void _initSymbolPlacements() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_symbols') {
-      _symbolPlacements[_currentQuestion] = {};
-    }
-  }
-
-  void _initSequenceBlanks() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_sequence') {
-      _sequenceFilledBlanks[_currentQuestion] = {};
-    }
-  }
-
-  void _initCompareSymbol() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_compare') {
-      _comparePlacedSymbol = null;
-    }
-  }
-
-  void _updateMatchingSelection(int leftIndex, int rightIndex) {
+  void _updateOrderBlank(int index, String value) {
     setState(() {
-      if (!_matchingSelections.containsKey(_currentQuestion)) {
-        _matchingSelections[_currentQuestion] = {};
-      }
-      _matchingSelections[_currentQuestion]![leftIndex] = rightIndex;
+      _matchFilledBlanks[_currentQuestion] ??= {};
+      _matchFilledBlanks[_currentQuestion]![index] = value;
+      _dragItems.remove(value);
     });
   }
 
-  void _updateSymbolPlacement(int equationIndex, String symbol) {
+  void _updateSymbolBlank(int index, String value) {
     setState(() {
-      if (!_symbolPlacements.containsKey(_currentQuestion)) {
-        _symbolPlacements[_currentQuestion] = {};
-      }
-      _symbolPlacements[_currentQuestion]![equationIndex] = symbol;
-      _dragItems.remove(symbol);
+      _matchFilledBlanks[_currentQuestion] ??= {};
+      _matchFilledBlanks[_currentQuestion]![index] = value;
+      _dragItems.remove(value);
     });
   }
 
-  void _updateSequenceBlank(int position, String number) {
+  void _updateSequenceBlank(int position, String value) {
     setState(() {
-      if (!_sequenceFilledBlanks.containsKey(_currentQuestion)) {
-        _sequenceFilledBlanks[_currentQuestion] = {};
-      }
-      _sequenceFilledBlanks[_currentQuestion]![position] = number;
-      _dragItems.remove(number);
+      _sequenceFilledBlanks[_currentQuestion] ??= {};
+      _sequenceFilledBlanks[_currentQuestion]![position] = value;
+      _dragItems.remove(value);
     });
   }
 
   void _updateCompareSymbol(String symbol) {
-    setState(() {
-      _comparePlacedSymbol = symbol;
-      _dragItems.remove(symbol);
-    });
+    setState(() { _comparePlacedSymbol = symbol; _dragItems.remove(symbol); });
   }
 
-  bool _isMatchingComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'matching') return true;
-    
-    final leftItems = question['leftItems'] as List;
-    final selections = _matchingSelections[questionIndex];
-    
-    if (selections == null) return false;
-    return selections.length == leftItems.length;
-  }
-
-  bool _isSymbolPlacementComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'drag_drop_symbols') return true;
-    
-    final equations = question['equations'] as List;
-    final placements = _symbolPlacements[questionIndex];
-    
-    if (placements == null) return false;
-    return placements.length == equations.length;
-  }
-
-  bool _isSequenceComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'drag_drop_sequence') return true;
-    
-    final correctAnswer = question['correctAnswer'] as List;
-    final blanks = _sequenceFilledBlanks[questionIndex];
-    
-    if (blanks == null) return false;
-    return blanks.length == correctAnswer.length;
-  }
-
-  bool _isCompareComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'drag_drop_compare') return true;
-    
-    return _comparePlacedSymbol != null;
-  }
-
-  bool _isDragDropComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (!question['type'].toString().startsWith('drag_drop')) return true;
-    
-    if (question['type'] == 'drag_drop_order') {
-      return !_dragTargets.contains('');
-    } else if (question['type'] == 'drag_drop_symbols') {
-      return _isSymbolPlacementComplete(questionIndex);
-    } else if (question['type'] == 'drag_drop_sequence') {
-      return _isSequenceComplete(questionIndex);
-    } else if (question['type'] == 'drag_drop_compare') {
-      return _isCompareComplete(questionIndex);
+  bool _isComplete(int qi) {
+    final q = _questions[qi];
+    final t = q['type'] as String;
+    if (t == 'matching') {
+      final m = _matchingSelections[qi];
+      return m != null && m.length == (q['leftItems'] as List).length;
     }
-    return false;
+    if (t == 'drag_drop_order') {
+      final m = _matchFilledBlanks[qi];
+      return m != null && m.length == (q['items'] as List).length;
+    }
+    if (t == 'drag_drop_symbols') {
+      final m = _matchFilledBlanks[qi];
+      return m != null && m.length == (q['equations'] as List).length;
+    }
+    if (t == 'drag_drop_sequence') {
+      final b = _sequenceFilledBlanks[qi];
+      return b != null && b.length == (q['correctAnswer'] as List).length;
+    }
+    if (t == 'drag_drop_compare') return _comparePlacedSymbol != null;
+    return true;
   }
 
   void _answerQuestion(dynamic answer) {
-    if (!_answeredQuestions[_currentQuestion]) {
-      setState(() {
-        _answeredQuestions[_currentQuestion] = true;
-        _userAnswers[_currentQuestion] = answer;
-
-        final question = _questions[_currentQuestion];
-        bool isCorrect = false;
-
-        if (question['type'] == 'multiple_choice') {
-          isCorrect = answer == question['correctAnswer'];
-        } else if (question['type'] == 'matching') {
-          isCorrect = _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
-        } else if (question['type'] == 'drag_drop_order') {
-          isCorrect = _checkDragDropOrder(answer as List<String>, question['correctOrder']);
-        } else if (question['type'] == 'drag_drop_symbols') {
-          isCorrect = _checkDragDropSymbols(answer as Map<int, String>, question['correctAnswer']);
-        } else if (question['type'] == 'drag_drop_sequence') {
-          isCorrect = _checkDragDropSequence(answer as List<String>, question['correctAnswer']);
-        } else if (question['type'] == 'drag_drop_compare') {
-          isCorrect = answer == question['correctSymbol'];
-        }
-
-        if (isCorrect) {
-          _score++;
-        }
-        
-        if (_answeredQuestions.every((answered) => answered)) {
-          _exerciseCompleted = true;
-          _recordExerciseResults();
-        }
-      });
-    }
+    if (_answeredQuestions[_currentQuestion]) return;
+    setState(() {
+      _answeredQuestions[_currentQuestion] = true;
+      _userAnswers[_currentQuestion] = answer;
+      final q = _questions[_currentQuestion];
+      bool isCorrect = false;
+      if (q['type'] == 'multiple_choice') {
+        isCorrect = answer == q['correctAnswer'];
+      } else if (q['type'] == 'matching') {
+        isCorrect = _checkMatching(answer as Map<int, int>, q['correctMatches']);
+      } else if (q['type'] == 'drag_drop_order') {
+        isCorrect = _checkOrder(answer as List<String>, q['correctOrder']);
+      } else if (q['type'] == 'drag_drop_symbols') {
+        // ✅ FIXED: compare placed symbol values against correctAnswer list
+        isCorrect = _checkSymbols(answer as Map<int, String>, q['correctAnswer']);
+      } else if (q['type'] == 'drag_drop_sequence') {
+        isCorrect = _checkSequence(answer as List<String>, q['correctAnswer']);
+      } else if (q['type'] == 'drag_drop_compare') {
+        isCorrect = answer == q['correctSymbol'];
+      }
+      if (isCorrect) _score++;
+      if (_answeredQuestions.every((a) => a)) { _exerciseCompleted = true; _recordResults(); }
+    });
   }
 
-  bool _checkMatchingAnswer(Map<int, int> userMatches, List<int> correctMatches) {
-    if (userMatches.length != correctMatches.length) return false;
-    
-    for (int i = 0; i < correctMatches.length; i++) {
-      if (userMatches[i] != correctMatches[i]) return false;
-    }
+  bool _checkMatching(Map<int, int> user, List<int> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
     return true;
   }
 
-  bool _checkDragDropOrder(List<String> userOrder, List<String> correctOrder) {
-    if (userOrder.length != correctOrder.length) return false;
-    
-    for (int i = 0; i < correctOrder.length; i++) {
-      if (userOrder[i] != correctOrder[i]) return false;
-    }
+  bool _checkOrder(List<String> user, List<String> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
     return true;
   }
 
-  bool _checkDragDropSymbols(Map<int, String> userPlacements, List<String> correctAnswer) {
+  // ✅ FIXED: checks each placed symbol against expected correctAnswer[i]
+  bool _checkSymbols(Map<int, String> userPlacements, List<String> correctAnswer) {
     if (userPlacements.length != correctAnswer.length) return false;
-    
     for (int i = 0; i < correctAnswer.length; i++) {
       if (userPlacements[i] != correctAnswer[i]) return false;
     }
     return true;
   }
 
-  bool _checkDragDropSequence(List<String> userAnswer, List<String> correctAnswer) {
-    if (userAnswer.length != correctAnswer.length) return false;
-    
-    for (int i = 0; i < correctAnswer.length; i++) {
-      if (userAnswer[i] != correctAnswer[i]) return false;
-    }
+  bool _checkSequence(List<String> user, List<String> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
     return true;
   }
 
-  void _recordExerciseResults() {
-    final percentage = (_score / _questions.length * 100).toInt();
-    
-    progressManager.recordExerciseScore(
-      widget.lessonName,
-      widget.language,
-      0,
-      'Comparison Comprehensive Exercise',
-      _score,
-      _questions.length,
-      _score,
-      percentage.toDouble(),
-    );
+  void _recordResults() {
+    final pct = (_score / _questions.length * 100).toInt();
+    progressManager.recordExerciseScore(widget.lessonName, widget.language, 0,
+      'Comparison Comprehensive Exercise', _score, _questions.length, _score, pct.toDouble());
   }
 
-  void _nextQuestion() {
-    if (_currentQuestion < _questions.length - 1) {
-      setState(() {
-        _currentQuestion++;
-        _initQuestion();
-      });
-    }
-  }
-
-  void _previousQuestion() {
-    if (_currentQuestion > 0) {
-      setState(() {
-        _currentQuestion--;
-        _initQuestion();
-      });
-    }
-  }
+  void _nextQuestion() { if (_currentQuestion < _questions.length - 1) setState(() { _currentQuestion++; _initQuestion(); }); }
+  void _previousQuestion() { if (_currentQuestion > 0) setState(() { _currentQuestion--; _initQuestion(); }); }
 
   void _restartExercise() {
     setState(() {
-      _currentQuestion = 0;
-      _score = 0;
-      _exerciseCompleted = false;
+      _currentQuestion = 0; _score = 0; _exerciseCompleted = false;
       _userAnswers = List.filled(_questions.length, null);
       _answeredQuestions = List.filled(_questions.length, false);
-      _matchingSelections.clear();
-      _symbolPlacements.clear();
-      _sequenceFilledBlanks.clear();
-      _comparePlacedSymbol = null;
+      _matchingSelections.clear(); _matchFilledBlanks.clear();
+      _sequenceFilledBlanks.clear(); _comparePlacedSymbol = null;
       _initQuestion();
     });
   }
 
+  void _submitInteractiveAnswer(Map<String, dynamic> q) {
+    final t = q['type'] as String;
+    if (!_isComplete(_currentQuestion)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please complete all answers first'), duration: Duration(seconds: 2)));
+      return;
+    }
+    if (t == 'matching') {
+      _answerQuestion(Map<int, int>.from(_matchingSelections[_currentQuestion]!));
+    } else if (t == 'drag_drop_order') {
+      final m = _matchFilledBlanks[_currentQuestion]!;
+      final List<String> ans = [];
+      for (int i = 0; i < (q['items'] as List).length; i++) ans.add(m[i] ?? '');
+      _answerQuestion(ans);
+    } else if (t == 'drag_drop_symbols') {
+      final m = _matchFilledBlanks[_currentQuestion]!;
+      // build map of index -> placed symbol string
+      final Map<int, String> ans = {};
+      for (int i = 0; i < (q['equations'] as List).length; i++) {
+        ans[i] = m[i] ?? '';
+      }
+      _answerQuestion(ans);
+    } else if (t == 'drag_drop_sequence') {
+      final b = _sequenceFilledBlanks[_currentQuestion]!;
+      final bp = q['blankPositions'] as List;
+      final List<String> ans = [];
+      for (int i = 0; i < bp.length; i++) ans.add(b[bp[i]] ?? '');
+      _answerQuestion(ans);
+    } else if (t == 'drag_drop_compare') {
+      _answerQuestion(_comparePlacedSymbol);
+    }
+  }
+
+  bool _isAnswerCorrect(Map<String, dynamic> q) {
+    final a = _userAnswers[_currentQuestion];
+    if (a == null) return false;
+    if (q['type'] == 'multiple_choice') return a == q['correctAnswer'];
+    if (q['type'] == 'matching') return _checkMatching(a as Map<int, int>, q['correctMatches']);
+    if (q['type'] == 'drag_drop_order') return _checkOrder(a as List<String>, q['correctOrder']);
+    if (q['type'] == 'drag_drop_symbols') return _checkSymbols(a as Map<int, String>, q['correctAnswer']);
+    if (q['type'] == 'drag_drop_sequence') return _checkSequence(a as List<String>, q['correctAnswer']);
+    if (q['type'] == 'drag_drop_compare') return a == q['correctSymbol'];
+    return false;
+  }
+
+  Color _getTypeColor(String t) {
+    if (t == 'multiple_choice') return Colors.blue;
+    if (t == 'matching') return Colors.purple;
+    if (t.startsWith('drag_drop')) return Colors.orange;
+    return Colors.grey;
+  }
+
+  String _getTypeName(String t) {
+    if (t == 'multiple_choice') return 'MULTIPLE CHOICE';
+    if (t == 'matching') return 'MATCHING TYPE';
+    if (t == 'drag_drop_order') return 'DRAG & DROP - ORDER';
+    if (t == 'drag_drop_symbols') return 'DRAG & DROP - SYMBOLS';
+    if (t == 'drag_drop_sequence') return 'DRAG & DROP - SEQUENCE';
+    if (t == 'drag_drop_compare') return 'DRAG & DROP - COMPARE';
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_exerciseCompleted) {
-      return _buildResultsScreen();
-    }
-
-    final question = _questions[_currentQuestion];
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+    if (_exerciseCompleted) return _buildResultsScreen();
+    final q = _questions[_currentQuestion];
+    final sw = MediaQuery.of(context).size.width;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Comparison Exercise',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              // Progress header
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.pink[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.pink[200]!),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Question ${_currentQuestion + 1}/${_questions.length}',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.04,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.pink[900],
-                          ),
-                        ),
-                        Text(
-                          'Comparison',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            color: Colors.pink[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.amber, width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.star, color: Colors.amber, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$_score',
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.04,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Question type badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getTypeColor(question['type']),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _getTypeName(question['type']),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Question card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.black, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      question['question'] as String,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 15),
-
-                    // Render different question types
-                    if (question['type'] == 'multiple_choice')
-                      _buildMultipleChoice(question, screenWidth)
-                    else if (question['type'] == 'matching')
-                      _buildMatchingType(question, screenWidth)
-                    else if (question['type'] == 'drag_drop_order' && _dragItemsInitialized)
-                      _buildDragDropOrder(question, screenWidth)
-                    else if (question['type'] == 'drag_drop_symbols' && _dragItemsInitialized)
-                      _buildDragDropSymbols(question, screenWidth)
-                    else if (question['type'] == 'drag_drop_sequence' && _dragItemsInitialized)
-                      _buildDragDropSequence(question, screenWidth)
-                    else if (question['type'] == 'drag_drop_compare' && _dragItemsInitialized)
-                      _buildDragDropCompare(question, screenWidth),
-
-                    const SizedBox(height: 15),
-
-                    // Submit button for interactive types
-                    if (!_answeredQuestions[_currentQuestion] && 
-                        (question['type'] == 'matching' || 
-                         question['type'].toString().startsWith('drag_drop')))
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(180, 40),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                        ),
-                        onPressed: () => _submitInteractiveAnswer(question),
-                        child: const Text('Submit Answer', style: TextStyle(fontSize: 14)),
-                      ),
-
-                    const SizedBox(height: 15),
-
-                    // Explanation
-                    if (_answeredQuestions[_currentQuestion])
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: _isAnswerCorrect(question) ? Colors.green[50] : Colors.red[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _isAnswerCorrect(question) ? Colors.green : Colors.red,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          _isAnswerCorrect(question)
-                              ? '✓ Correct! ${question['explanation'] as String}'
-                              : '✗ ${question['explanation'] as String}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: screenWidth > 600 ? 15 : 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 15),
-
-              // Navigation buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _currentQuestion > 0 ? _previousQuestion : null,
-                      child: const Text('Previous', style: TextStyle(fontSize: 14)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null,
-                      child: Text(
-                        _currentQuestion == _questions.length - 1 ? 'Finish' : 'Next',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ===== MULTIPLE CHOICE BUILDER =====
-  Widget _buildMultipleChoice(Map<String, dynamic> question, double screenWidth) {
-    return Column(
-      children: [
-        // Visual representation for object comparison
-        if (question.containsKey('leftObjects') && question.containsKey('rightObjects'))
+      appBar: AppBar(backgroundColor: Colors.white,
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)),
+        title: const Text('Comparison Exercise', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        centerTitle: true, elevation: 0),
+      body: SafeArea(child: SingleChildScrollView(
+        padding: const EdgeInsets.all(12),
+        child: Column(children: [
           Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.pink[200]!, width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // Left group
-                Expanded(
-                  child: Column(
-                    children: [
-                      const Text('Group A', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        alignment: WrapAlignment.center,
-                        children: (question['leftObjects'] as List).map((obj) {
-                          return Container(
-                            padding: const EdgeInsets.all(2),
-                            child: Text(obj as String, style: const TextStyle(fontSize: 24)),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 2),
-                      Text('(${question['leftCount']})', style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                ),
-                
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: Colors.pink[50], borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.pink[200]!)),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Question ${_currentQuestion + 1}/${_questions.length}',
+                  style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold, color: Colors.pink[900])),
+                Text('Comparison', style: TextStyle(fontSize: sw * 0.035, color: Colors.pink[700])),
+              ]),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.amber, width: 1)),
+                child: Row(children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 16), const SizedBox(width: 4),
+                  Text('$_score', style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold, color: Colors.amber[800])),
+                ])),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: _getTypeColor(q['type']), borderRadius: BorderRadius.circular(20)),
+            child: Text(_getTypeName(q['type']), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity, padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.black, width: 1.5),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5, offset: const Offset(0, 2))]),
+            child: Column(children: [
+              Text(q['question'] as String, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center),
+              const SizedBox(height: 15),
+              if (q['type'] == 'multiple_choice') _buildMC(q, sw)
+              else if (q['type'] == 'matching') _buildMatching(q, sw)
+              else if (q['type'] == 'drag_drop_order' && _dragItemsInitialized) _buildDDOrder(q, sw)
+              else if (q['type'] == 'drag_drop_symbols' && _dragItemsInitialized) _buildDDSymbols(q, sw)
+              else if (q['type'] == 'drag_drop_sequence' && _dragItemsInitialized) _buildDDSequence(q, sw)
+              else if (q['type'] == 'drag_drop_compare' && _dragItemsInitialized) _buildDDCompare(q, sw),
+              const SizedBox(height: 15),
+              if (!_answeredQuestions[_currentQuestion] &&
+                  (q['type'] == 'matching' || q['type'].toString().startsWith('drag_drop')))
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white,
+                    minimumSize: const Size(180, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
+                  onPressed: () => _submitInteractiveAnswer(q),
+                  child: const Text('Submit Answer', style: TextStyle(fontSize: 14))),
+              const SizedBox(height: 15),
+              if (_answeredQuestions[_currentQuestion])
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  child: const Text('vs', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                ),
-                
-                // Right group
-                Expanded(
-                  child: Column(
-                    children: [
-                      const Text('Group B', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        alignment: WrapAlignment.center,
-                        children: (question['rightObjects'] as List).map((obj) {
-                          return Container(
-                            padding: const EdgeInsets.all(2),
-                            child: Text(obj as String, style: const TextStyle(fontSize: 24)),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 2),
-                      Text('(${question['rightCount']})', style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+                  width: double.infinity, padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _isAnswerCorrect(q) ? Colors.green[50] : Colors.red[50],
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _isAnswerCorrect(q) ? Colors.green : Colors.red, width: 1.5)),
+                  child: Text(
+                    _isAnswerCorrect(q) ? '✓ Correct! ${q['explanation']}' : '✗ ${q['explanation']}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: sw > 600 ? 15 : 13, fontWeight: FontWeight.w500))),
+            ]),
           ),
-        
-        const SizedBox(height: 15),
-
-        // Options grid
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: screenWidth > 600 ? 2.2 : 2.0,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: (question['options'] as List).length,
-          itemBuilder: (context, index) {
-            final isAnswered = _answeredQuestions[_currentQuestion];
-            final isSelected = _userAnswers[_currentQuestion] == index;
-            final isCorrect = index == (question['correctAnswer'] as int);
-
-            Color buttonColor = Colors.white;
-            if (isAnswered) {
-              if (isSelected && isCorrect) {
-                buttonColor = Colors.green;
-              } else if (isSelected && !isCorrect) {
-                buttonColor = Colors.red;
-              } else if (isCorrect) {
-                buttonColor = Colors.green[100]!;
-              }
-            }
-
-            return GestureDetector(
-              onTap: isAnswered ? null : () => _answerQuestion(index),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  color: buttonColor,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isSelected ? Colors.black : Colors.grey[300]!,
-                    width: isSelected ? 2 : 1,
-                  ),
-                  boxShadow: [
-                    if (!isAnswered)
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 2,
-                        offset: const Offset(0, 1),
-                      ),
-                  ],
-                ),
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Text(
-                      (question['options'] as List)[index] as String,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: screenWidth > 600 ? 15 : 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+          const SizedBox(height: 15),
+          Row(children: [
+            Expanded(child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)),
+                padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1),
+              onPressed: _currentQuestion > 0 ? _previousQuestion : null,
+              child: const Text('Previous', style: TextStyle(fontSize: 14)))),
+            const SizedBox(width: 10),
+            Expanded(child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)),
+                padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1),
+              onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null,
+              child: Text(_currentQuestion == _questions.length - 1 ? 'Finish' : 'Next',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)))),
+          ]),
+        ]),
+      )),
     );
   }
 
-  // ===== FIXED MATCHING TYPE BUILDER =====
-  Widget _buildMatchingType(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    final rightItems = question['rightItems'] as List;
-    
-    return Column(
-      children: [
+  Widget _buildMC(Map<String, dynamic> q, double sw) {
+    return Column(children: [
+      if (q.containsKey('leftObjects') && q.containsKey('rightObjects'))
         Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.purple[200]!, width: 1.5),
-          ),
-          child: Column(
-            children: [
-              // Headers
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.purple[100],
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'Item',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.purple[100],
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'Match',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 8),
-              
-              // Matching rows
-              ...List.generate(leftItems.length, (index) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      // Left item
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.grey[300]!),
-                          ),
-                          child: Text(
-                            leftItems[index] as String,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ),
-                      
-                      const SizedBox(width: 8),
-                      
-                      // Right dropdown
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.purple[300]!),
-                          ),
-                          child: DropdownButton<int>(
-                            value: _matchingSelections[_currentQuestion]?[index],
-                            hint: const Text('Select', style: TextStyle(fontSize: 12)),
-                            isExpanded: true,
-                            underline: const SizedBox(),
-                            iconSize: 20,
-                            items: List.generate(rightItems.length, (i) {
-                              return DropdownMenuItem<int>(
-                                value: i,
-                                child: Text(rightItems[i] as String, style: const TextStyle(fontSize: 12)),
-                              );
-                            }),
-                            onChanged: _answeredQuestions[_currentQuestion] 
-                                ? null 
-                                : (value) {
-                                    _updateMatchingSelection(index, value!);
-                                  },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.pink[200]!, width: 1.5)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+            Expanded(child: Column(children: [
+              const Text('Group A', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 4, runSpacing: 4, alignment: WrapAlignment.center,
+                children: (q['leftObjects'] as List).map((o) => Text(o as String, style: const TextStyle(fontSize: 22))).toList()),
+              Text('(${q['leftCount']})', style: const TextStyle(fontSize: 12)),
+            ])),
+            const Text('vs', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            Expanded(child: Column(children: [
+              const Text('Group B', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 4, runSpacing: 4, alignment: WrapAlignment.center,
+                children: (q['rightObjects'] as List).map((o) => Text(o as String, style: const TextStyle(fontSize: 22))).toList()),
+              Text('(${q['rightCount']})', style: const TextStyle(fontSize: 12)),
+            ])),
+          ]),
         ),
-      ],
-    );
+      const SizedBox(height: 15),
+      GridView.builder(
+        shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2, childAspectRatio: sw > 600 ? 2.2 : 2.0, crossAxisSpacing: 8, mainAxisSpacing: 8),
+        itemCount: (q['options'] as List).length,
+        itemBuilder: (context, i) {
+          final isAnswered = _answeredQuestions[_currentQuestion];
+          final isSel = _userAnswers[_currentQuestion] == i;
+          final isCorrect = i == (q['correctAnswer'] as int);
+          Color c = Colors.white;
+          if (isAnswered) { if (isSel && isCorrect) c = Colors.green; else if (isSel) c = Colors.red; else if (isCorrect) c = Colors.green[100]!; }
+          return GestureDetector(onTap: isAnswered ? null : () => _answerQuestion(i),
+            child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isSel ? Colors.black : Colors.grey[300]!, width: isSel ? 2 : 1)),
+              child: Center(child: Padding(padding: const EdgeInsets.all(6),
+                child: Text((q['options'] as List)[i] as String, textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: sw > 600 ? 15 : 13, fontWeight: FontWeight.bold))))));
+        }),
+    ]);
   }
 
-  // ===== FIXED DRAG AND DROP ORDER BUILDER =====
-  Widget _buildDragDropOrder(Map<String, dynamic> question, double screenWidth) {
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Drag items
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.blue, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag these numbers:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _dragItems.map((item) {
-                      return Draggable<String>(
-                        data: item,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.blue,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              item,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.blue, width: 1.5),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 15),
-            
-            // Drop targets
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.green, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drop in correct order:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(_dragTargets.length, (index) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
-                        child: DragTarget<String>(
-                          builder: (context, candidateData, rejectedData) {
-                            return Container(
-                              width: 45,
-                              height: 45,
-                              decoration: BoxDecoration(
-                                color: _dragTargets[index].isEmpty
-                                    ? Colors.green[100]
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: _dragTargets[index].isEmpty
-                                      ? Colors.green
-                                      : Colors.green[700]!,
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  _dragTargets[index],
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                          onWillAccept: (data) {
-                            return _dragTargets[index].isEmpty;
-                          },
-                          onAccept: (data) {
-                            setState(() {
-                              _dragTargets[index] = data;
-                              _dragItems.remove(data);
-                            });
-                          },
-                        ),
-                      );
-                    }),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+  Widget _buildMatching(Map<String, dynamic> q, double sw) {
+    final left = q['leftItems'] as List; final right = q['rightItems'] as List;
+    return Container(padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.purple[200]!, width: 1.5)),
+      child: Column(children: [
+        Row(children: [
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Item', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center))),
+          const SizedBox(width: 8),
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Match', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center))),
+        ]),
+        const SizedBox(height: 8),
+        ...List.generate(left.length, (i) => Padding(padding: const EdgeInsets.only(bottom: 6),
+          child: Row(children: [
+            Expanded(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey[300]!)),
+              child: Text(left[i] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)))),
+            const SizedBox(width: 8),
+            Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 6), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.purple[300]!)),
+              child: DropdownButton<int>(value: _matchingSelections[_currentQuestion]?[i],
+                hint: const Text('Select', style: TextStyle(fontSize: 12)), isExpanded: true, underline: const SizedBox(), iconSize: 20,
+                items: List.generate(right.length, (j) => DropdownMenuItem<int>(value: j, child: Text(right[j] as String, style: const TextStyle(fontSize: 12)))),
+                onChanged: _answeredQuestions[_currentQuestion] ? null : (v) => _updateMatchingSelection(i, v!)))),
+          ]))),
+      ]));
   }
 
-  // ===== FIXED DRAG AND DROP SYMBOLS BUILDER =====
-  Widget _buildDragDropSymbols(Map<String, dynamic> question, double screenWidth) {
-    final equations = question['equations'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Equations
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.orange, width: 1.5),
-              ),
-              child: Column(
-                children: List.generate(equations.length, (index) {
-                  final placement = _symbolPlacements[_currentQuestion]?[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          equations[index]['left'],
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(width: 8),
-                        
-                        // Drop target for symbol
-                        DragTarget<String>(
-                          builder: (context, candidateData, rejectedData) {
-                            return Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: placement == null
-                                    ? Colors.orange[100]
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: placement == null
-                                      ? Colors.orange
-                                      : Colors.orange[700]!,
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  placement ?? '?',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                          onWillAccept: (data) {
-                            return _symbolPlacements[_currentQuestion]?[index] == null;
-                          },
-                          onAccept: (data) {
-                            _updateSymbolPlacement(index, data);
-                          },
-                        ),
-                        
-                        const SizedBox(width: 8),
-                        Text(
-                          equations[index]['right'],
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ),
-            ),
-            
-            const SizedBox(height: 15),
-            
-            // Drag items (symbols)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.yellow[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.yellow[700]!, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag symbols:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _dragItems.map((symbol) {
-                      return Draggable<String>(
-                        data: symbol,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.yellow[700],
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              symbol,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            symbol,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.yellow[700]!, width: 1.5),
-                          ),
-                          child: Text(
-                            symbol,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+  Widget _buildDDOrder(Map<String, dynamic> q, double sw) {
+    final items = q['items'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag these numbers:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: _dragItems.map((item) => Draggable<String>(data: item,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.blue, width: 1.5)), child: Text(item, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))))).toList()),
+        ])),
+      const SizedBox(height: 15),
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green, width: 1.5)),
+        child: Column(children: [
+          const Text('Drop in correct order:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(items.length, (index) {
+            final fv = _matchFilledBlanks[_currentQuestion]?[index];
+            return Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: DragTarget<String>(
+              builder: (ctx, cd, rd) => Container(width: 45, height: 45, decoration: BoxDecoration(color: fv == null ? Colors.green[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.green : Colors.green[700]!, width: 1.5)), child: Center(child: Text(fv ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))),
+              onWillAccept: (d) => _matchFilledBlanks[_currentQuestion]?[index] == null,
+              onAccept: (d) { _updateOrderBlank(index, d); ss(() {}); }));
+          })),
+        ])),
+    ]));
   }
 
-  // ===== FIXED DRAG AND DROP SEQUENCE BUILDER =====
-  Widget _buildDragDropSequence(Map<String, dynamic> question, double screenWidth) {
-    final sequence = question['sequence'] as List;
-    final blankPositions = question['blankPositions'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Sequence with blanks
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.purple[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.purple, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Complete the sequence:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(sequence.length, (index) {
-                      if (blankPositions.contains(index)) {
-                        final filledValue = _sequenceFilledBlanks[_currentQuestion]?[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          child: DragTarget<String>(
-                            builder: (context, candidateData, rejectedData) {
-                              return Container(
-                                width: 45,
-                                height: 45,
-                                decoration: BoxDecoration(
-                                  color: filledValue == null
-                                      ? Colors.purple[100]
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: filledValue == null
-                                        ? Colors.purple
-                                        : Colors.purple[700]!,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    filledValue ?? '?',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                            onWillAccept: (data) {
-                              return _sequenceFilledBlanks[_currentQuestion]?[index] == null;
-                            },
-                            onAccept: (data) {
-                              _updateSequenceBlank(index, data);
-                            },
-                          ),
-                        );
-                      } else {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          child: Container(
-                            width: 45,
-                            height: 45,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.purple, width: 1.5),
-                            ),
-                            child: Center(
-                              child: Text(
-                                sequence[index] as String,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                    }),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 15),
-            
-            // Drag items (available numbers)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.teal[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.teal, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag numbers:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _dragItems.map((num) {
-                      return Draggable<String>(
-                        data: num,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.teal,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              num,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            num,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.teal, width: 1.5),
-                          ),
-                          child: Text(
-                            num,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+  Widget _buildDDSymbols(Map<String, dynamic> q, double sw) {
+    final equations = q['equations'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange, width: 1.5)),
+        child: Column(children: List.generate(equations.length, (i) {
+          final fv = _matchFilledBlanks[_currentQuestion]?[i];
+          return Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(equations[i]['left'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 8),
+            DragTarget<String>(
+              builder: (ctx, cd, rd) => Container(width: 40, height: 40, decoration: BoxDecoration(color: fv == null ? Colors.orange[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.orange : Colors.orange[700]!, width: 1.5)), child: Center(child: Text(fv ?? '?', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
+              onWillAccept: (d) => _matchFilledBlanks[_currentQuestion]?[i] == null,
+              onAccept: (d) { _updateSymbolBlank(i, d); ss(() {}); }),
+            const SizedBox(width: 8),
+            Text(equations[i]['right'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ]));
+        }))),
+      const SizedBox(height: 15),
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.yellow[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.yellow[700]!, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag symbols:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: _dragItems.map((sym) => Draggable<String>(data: sym,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.yellow[700], borderRadius: BorderRadius.circular(6)), child: Text(sym, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(sym, style: const TextStyle(color: Colors.grey, fontSize: 18, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.yellow[700]!, width: 1.5)), child: Text(sym, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))))).toList()),
+        ])),
+    ]));
   }
 
-  // ===== FIXED DRAG AND DROP COMPARE BUILDER =====
-  Widget _buildDragDropCompare(Map<String, dynamic> question, double screenWidth) {
-    final leftGroup = question['leftGroup'] as List;
-    final rightGroup = question['rightGroup'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Groups to compare
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.amber, width: 1.5),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Left group
-                  Expanded(
-                    child: Column(
-                      children: [
-                        const Text('Group A', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
-                          alignment: WrapAlignment.center,
-                          children: leftGroup.map((obj) {
-                            return Text(obj as String, style: const TextStyle(fontSize: 22));
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 2),
-                        Text('${question['leftCount']} items', style: const TextStyle(fontSize: 11)),
-                      ],
-                    ),
-                  ),
-                  
-                  // Drag target for symbol
-                  DragTarget<String>(
-                    builder: (context, candidateData, rejectedData) {
-                      return Container(
-                        width: 45,
-                        height: 45,
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          color: _comparePlacedSymbol == null ? Colors.amber[100] : Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: _comparePlacedSymbol == null ? Colors.amber : Colors.amber[700]!,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            _comparePlacedSymbol ?? '?',
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                    onWillAccept: (data) {
-                      return _comparePlacedSymbol == null;
-                    },
-                    onAccept: (data) {
-                      _updateCompareSymbol(data);
-                    },
-                  ),
-                  
-                  // Right group
-                  Expanded(
-                    child: Column(
-                      children: [
-                        const Text('Group B', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
-                          alignment: WrapAlignment.center,
-                          children: rightGroup.map((obj) {
-                            return Text(obj as String, style: const TextStyle(fontSize: 22));
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 2),
-                        Text('${question['rightCount']} items', style: const TextStyle(fontSize: 11)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 15),
-            
-            // Drag items (symbols)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag the correct symbol:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _dragItems.map((symbol) {
-                      return Draggable<String>(
-                        data: symbol,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              symbol,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            symbol,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.red, width: 1.5),
-                          ),
-                          child: Text(
-                            symbol,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+  Widget _buildDDSequence(Map<String, dynamic> q, double sw) {
+    final sequence = q['sequence'] as List; final bp = q['blankPositions'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.purple[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.purple, width: 1.5)),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(sequence.length, (i) {
+          if (bp.contains(i)) {
+            final fv = _sequenceFilledBlanks[_currentQuestion]?[i];
+            return Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: DragTarget<String>(
+              builder: (ctx, cd, rd) => Container(width: 45, height: 45, decoration: BoxDecoration(color: fv == null ? Colors.purple[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.purple : Colors.purple[700]!, width: 1.5)), child: Center(child: Text(fv ?? '?', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))),
+              onWillAccept: (d) => _sequenceFilledBlanks[_currentQuestion]?[i] == null,
+              onAccept: (d) { _updateSequenceBlank(i, d); ss(() {}); }));
+          }
+          return Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: Container(width: 45, height: 45, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.purple, width: 1.5)), child: Center(child: Text(sequence[i] as String, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))));
+        }))),
+      const SizedBox(height: 15),
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.teal[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.teal, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag numbers:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: _dragItems.map((num) => Draggable<String>(data: num,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.teal, borderRadius: BorderRadius.circular(6)), child: Text(num, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(num, style: const TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.teal, width: 1.5)), child: Text(num, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))))).toList()),
+        ])),
+    ]));
   }
 
-  void _submitInteractiveAnswer(Map<String, dynamic> question) {
-    dynamic answer;
-    
-    if (question['type'] == 'matching') {
-      final matches = _matchingSelections[_currentQuestion];
-      if (matches == null || matches.length != (question['leftItems'] as List).length) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all matches first'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      answer = matches;
-    } 
-    else if (question['type'] == 'drag_drop_order') {
-      if (_dragTargets.contains('')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please fill all positions'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      answer = List<String>.from(_dragTargets);
-    } 
-    else if (question['type'] == 'drag_drop_symbols') {
-      if (!_isSymbolPlacementComplete(_currentQuestion)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all symbols'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      final placements = _symbolPlacements[_currentQuestion]!;
-      // Convert map to list in correct order
-      final List<String> answerList = [];
-      for (int i = 0; i < (question['equations'] as List).length; i++) {
-        answerList.add(placements[i] ?? '');
-      }
-      answer = answerList.asMap();
-    } 
-    else if (question['type'] == 'drag_drop_sequence') {
-      if (!_isSequenceComplete(_currentQuestion)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all blanks'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      final blanks = _sequenceFilledBlanks[_currentQuestion]!;
-      final List<String> answerList = [];
-      final blankPositions = question['blankPositions'] as List;
-      for (int i = 0; i < blankPositions.length; i++) {
-        answerList.add(blanks[blankPositions[i]] ?? '');
-      }
-      answer = answerList;
-    } 
-    else if (question['type'] == 'drag_drop_compare') {
-      if (_comparePlacedSymbol == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please place a symbol'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      answer = _comparePlacedSymbol;
-    }
-    
-    _answerQuestion(answer);
-  }
-
-  bool _isAnswerCorrect(Map<String, dynamic> question) {
-    final answer = _userAnswers[_currentQuestion];
-    if (answer == null) return false;
-    
-    if (question['type'] == 'multiple_choice') {
-      return answer == question['correctAnswer'];
-    } else if (question['type'] == 'matching') {
-      return _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
-    } else if (question['type'] == 'drag_drop_order') {
-      return _checkDragDropOrder(answer as List<String>, question['correctOrder']);
-    } else if (question['type'] == 'drag_drop_symbols') {
-      return _checkDragDropSymbols(answer as Map<int, String>, question['correctAnswer']);
-    } else if (question['type'] == 'drag_drop_sequence') {
-      return _checkDragDropSequence(answer as List<String>, question['correctAnswer']);
-    } else if (question['type'] == 'drag_drop_compare') {
-      return answer == question['correctSymbol'];
-    }
-    return true;
-  }
-
-  Color _getTypeColor(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return Colors.blue;
-      case 'matching':
-        return Colors.purple;
-      case 'drag_drop_order':
-      case 'drag_drop_symbols':
-      case 'drag_drop_sequence':
-      case 'drag_drop_compare':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getTypeName(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return 'MULTIPLE CHOICE';
-      case 'matching':
-        return 'MATCHING TYPE';
-      case 'drag_drop_order':
-        return 'DRAG & DROP - ORDER';
-      case 'drag_drop_symbols':
-        return 'DRAG & DROP - SYMBOLS';
-      case 'drag_drop_sequence':
-        return 'DRAG & DROP - SEQUENCE';
-      case 'drag_drop_compare':
-        return 'DRAG & DROP - COMPARE';
-      default:
-        return '';
-    }
+  Widget _buildDDCompare(Map<String, dynamic> q, double sw) {
+    final left = q['leftGroup'] as List; final right = q['rightGroup'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.amber[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber, width: 1.5)),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+          Expanded(child: Column(children: [const Text('Group A', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), const SizedBox(height: 6), Wrap(spacing: 4, runSpacing: 4, alignment: WrapAlignment.center, children: left.map((o) => Text(o as String, style: const TextStyle(fontSize: 22))).toList()), Text('${q['leftCount']} items', style: const TextStyle(fontSize: 11))])),
+          DragTarget<String>(
+            builder: (ctx, cd, rd) => Container(width: 45, height: 45, margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(color: _comparePlacedSymbol == null ? Colors.amber[100] : Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: _comparePlacedSymbol == null ? Colors.amber : Colors.amber[700]!, width: 1.5)), child: Center(child: Text(_comparePlacedSymbol ?? '?', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)))),
+            onWillAccept: (d) => _comparePlacedSymbol == null,
+            onAccept: (d) { _updateCompareSymbol(d); ss(() {}); }),
+          Expanded(child: Column(children: [const Text('Group B', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), const SizedBox(height: 6), Wrap(spacing: 4, runSpacing: 4, alignment: WrapAlignment.center, children: right.map((o) => Text(o as String, style: const TextStyle(fontSize: 22))).toList()), Text('${q['rightCount']} items', style: const TextStyle(fontSize: 11))])),
+        ])),
+      const SizedBox(height: 15),
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag the correct symbol:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: _dragItems.map((sym) => Draggable<String>(data: sym,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)), child: Text(sym, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(sym, style: const TextStyle(color: Colors.grey, fontSize: 22, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.red, width: 1.5)), child: Text(sym, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold))))).toList()),
+        ])),
+    ]));
   }
 
   Widget _buildResultsScreen() {
-    final percentage = (_score / _questions.length * 100).round();
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    String message;
-    String emoji;
-    Color color;
-
-    if (percentage == 100) {
-      message = 'Perfect Score!';
-      emoji = '🏆';
-      color = Colors.amber;
-    } else if (percentage >= 80) {
-      message = 'Great Job!';
-      emoji = '🎉';
-      color = Colors.green;
-    } else if (percentage >= 60) {
-      message = 'Good Try!';
-      emoji = '👍';
-      color = Colors.blue;
-    } else {
-      message = 'Keep Practicing!';
-      emoji = '💪';
-      color = Colors.orange;
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Exercise Complete'),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                emoji,
-                style: const TextStyle(fontSize: 70),
-              ),
-              const SizedBox(height: 15),
-              Text(
-                message,
-                style: TextStyle(
-                  fontSize: screenWidth > 600 ? 30 : 26,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 25),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: color, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Your Score',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$_score/${_questions.length}',
-                      style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$percentage%',
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: _restartExercise,
-                      child: const Text('Try Again'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Back to Lessons'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    final pct = (_score / _questions.length * 100).round(); final sw = MediaQuery.of(context).size.width;
+    String msg; String emoji; Color color;
+    if (pct == 100) { msg = 'Perfect Score!'; emoji = '🏆'; color = Colors.amber; } else if (pct >= 80) { msg = 'Great Job!'; emoji = '🎉'; color = Colors.green; } else if (pct >= 60) { msg = 'Good Try!'; emoji = '👍'; color = Colors.blue; } else { msg = 'Keep Practicing!'; emoji = '💪'; color = Colors.orange; }
+    return Scaffold(backgroundColor: Colors.white, appBar: AppBar(backgroundColor: Colors.white, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)), title: const Text('Exercise Complete'), centerTitle: true, elevation: 0),
+      body: Center(child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Text(emoji, style: const TextStyle(fontSize: 70)), const SizedBox(height: 15),
+        Text(msg, style: TextStyle(fontSize: sw > 600 ? 30 : 26, fontWeight: FontWeight.bold, color: color)), const SizedBox(height: 25),
+        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: color, width: 2)), child: Column(children: [const Text('Your Score', style: TextStyle(fontSize: 16)), const SizedBox(height: 8), Text('$_score/${_questions.length}', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text('$pct%', style: const TextStyle(fontSize: 24))])),
+        const SizedBox(height: 30),
+        Row(children: [
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 14)), onPressed: _restartExercise, child: const Text('Try Again'))),
+          const SizedBox(width: 10),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 14)), onPressed: () => Navigator.pop(context), child: const Text('Back to Lessons'))),
+        ]),
+      ]))));
   }
 }
 
@@ -16442,187 +14582,110 @@ class _FundamentalOperationsExerciseScreenState extends State<FundamentalOperati
   bool _exerciseCompleted = false;
   List<dynamic> _userAnswers = List.filled(15, null);
   List<bool> _answeredQuestions = List.filled(15, false);
-  
-  // For drag and drop
+
   List<String> _dragItems = [];
-  List<String> _dragTargets = [];
-  
-  // For matching type
   Map<int, Map<int, int>> _matchingSelections = {};
-  
-  // For drag drop sequence
-  Map<int, Map<int, String>> _sequenceFilledBlanks = {};
-  
-  // For drag drop match
   Map<int, Map<int, String>> _matchFilledBlanks = {};
-  
-  // Track if drag items are initialized
+  Map<int, Map<int, String>> _sequenceFilledBlanks = {};
   bool _dragItemsInitialized = false;
 
   final List<Map<String, dynamic>> _questions = [
-    // ===== ADDITION QUESTIONS (3 items) =====
-    // 1. Basic Addition - Multiple Choice
+    // ADDITION
     {
-      'id': 1,
-      'type': 'multiple_choice',
-      'operation': 'addition',
+      'id': 1, 'type': 'multiple_choice', 'operation': 'addition',
       'question': 'What is 7 + 5?',
-      'correctAnswer': 1,
-      'options': [11, 12, 13, 14],
+      'correctAnswer': 1, 'options': [11, 12, 13, 14],
       'explanation': '7 + 5 = 12',
     },
-    
-    // 2. Addition with Objects - Multiple Choice
     {
-      'id': 2,
-      'type': 'multiple_choice',
-      'operation': 'addition',
+      'id': 2, 'type': 'multiple_choice', 'operation': 'addition',
       'question': 'How many apples in total?',
-      'leftObjects': ['🍎', '🍎', '🍎', '🍎'],
-      'rightObjects': ['🍎', '🍎', '🍎'],
-      'leftCount': 4,
-      'rightCount': 3,
-      'correctAnswer': 2,
-      'options': [5, 6, 7, 8],
+      'leftObjects': ['🍎','🍎','🍎','🍎'], 'rightObjects': ['🍎','🍎','🍎'],
+      'leftCount': 4, 'rightCount': 3,
+      'correctAnswer': 2, 'options': [5, 6, 7, 8],
       'explanation': '4 apples + 3 apples = 7 apples',
     },
-    
-    // 3. Two-Digit Addition - Drag Drop Match
     {
-      'id': 3,
-      'type': 'drag_drop_match',
-      'operation': 'addition',
+      'id': 3, 'type': 'drag_drop_match', 'operation': 'addition',
       'question': 'Match each addition with the correct sum:',
       'leftItems': ['12 + 5', '20 + 13', '15 + 15', '24 + 6'],
       'rightItems': ['17', '33', '30', '30'],
-      'correctMatches': [0, 1, 2, 2], // 24+6 also = 30
+      'correctMatches': [0, 1, 2, 2],
       'explanation': '12+5=17, 20+13=33, 15+15=30, 24+6=30',
     },
-
-    // ===== SUBTRACTION QUESTIONS (3 items) =====
-    // 4. Basic Subtraction - Multiple Choice
+    // SUBTRACTION
     {
-      'id': 4,
-      'type': 'multiple_choice',
-      'operation': 'subtraction',
+      'id': 4, 'type': 'multiple_choice', 'operation': 'subtraction',
       'question': 'What is 15 - 7?',
-      'correctAnswer': 2,
-      'options': [6, 7, 8, 9],
+      'correctAnswer': 2, 'options': [6, 7, 8, 9],
       'explanation': '15 - 7 = 8',
     },
-    
-    // 5. Subtraction with Objects - Multiple Choice
     {
-      'id': 5,
-      'type': 'multiple_choice',
-      'operation': 'subtraction',
+      'id': 5, 'type': 'multiple_choice', 'operation': 'subtraction',
       'question': 'How many are left?',
-      'totalObjects': ['🍎', '🍎', '🍎', '🍎', '🍎', '🍎', '🍎', '🍎'],
-      'removeCount': 3,
-      'totalCount': 8,
-      'correctAnswer': 1,
-      'options': [4, 5, 6, 7],
+      'totalObjects': ['🍎','🍎','🍎','🍎','🍎','🍎','🍎','🍎'],
+      'removeCount': 3, 'totalCount': 8,
+      'correctAnswer': 1, 'options': [4, 5, 6, 7],
       'explanation': '8 - 3 = 5 apples left',
     },
-    
-    // 6. Subtraction Word Problem - Multiple Choice
     {
-      'id': 6,
-      'type': 'multiple_choice',
-      'operation': 'subtraction',
+      'id': 6, 'type': 'multiple_choice', 'operation': 'subtraction',
       'question': 'Mika had 25 candies. She ate 8. How many are left?',
-      'correctAnswer': 1,
-      'options': [15, 17, 18, 20],
+      'correctAnswer': 1, 'options': [15, 17, 18, 20],
       'explanation': '25 - 8 = 17 candies left',
     },
-
-    // ===== MULTIPLICATION QUESTIONS (3 items) =====
-    // 7. Basic Multiplication - Multiple Choice
+    // MULTIPLICATION
     {
-      'id': 7,
-      'type': 'multiple_choice',
-      'operation': 'multiplication',
+      'id': 7, 'type': 'multiple_choice', 'operation': 'multiplication',
       'question': 'What is 6 × 4?',
-      'correctAnswer': 2,
-      'options': [20, 22, 24, 26],
+      'correctAnswer': 2, 'options': [20, 22, 24, 26],
       'explanation': '6 × 4 = 24',
     },
-    
-    // 8. Multiplication as Repeated Addition - Drag Drop Order
     {
-      'id': 8,
-      'type': 'drag_drop_order',
-      'operation': 'multiplication',
+      'id': 8, 'type': 'drag_drop_order', 'operation': 'multiplication',
       'question': 'Arrange the repeated addition for 3 × 4:',
       'items': ['4', '+', '4', '+', '4'],
       'correctOrder': ['4', '+', '4', '+', '4'],
       'explanation': '3 × 4 means 4 + 4 + 4',
     },
-    
-    // 9. Multiplication Word Problem - Multiple Choice
     {
-      'id': 9,
-      'type': 'multiple_choice',
-      'operation': 'multiplication',
+      'id': 9, 'type': 'multiple_choice', 'operation': 'multiplication',
       'question': 'A box has 8 eggs. How many eggs in 5 boxes?',
-      'correctAnswer': 2,
-      'options': [35, 38, 40, 45],
+      'correctAnswer': 2, 'options': [35, 38, 40, 45],
       'explanation': '8 × 5 = 40 eggs',
     },
-
-    // ===== DIVISION QUESTIONS (3 items) =====
-    // 10. Basic Division - Multiple Choice
+    // DIVISION
     {
-      'id': 10,
-      'type': 'multiple_choice',
-      'operation': 'division',
+      'id': 10, 'type': 'multiple_choice', 'operation': 'division',
       'question': 'What is 24 ÷ 6?',
-      'correctAnswer': 0,
-      'options': [4, 5, 6, 7],
+      'correctAnswer': 0, 'options': [4, 5, 6, 7],
       'explanation': '24 ÷ 6 = 4',
     },
-    
-    // 11. Division as Equal Sharing - Drag Drop Match
     {
-      'id': 11,
-      'type': 'drag_drop_match',
-      'operation': 'division',
+      'id': 11, 'type': 'drag_drop_match', 'operation': 'division',
       'question': 'Match each division with the correct quotient:',
       'leftItems': ['15 ÷ 3', '20 ÷ 4', '18 ÷ 3', '12 ÷ 2'],
       'rightItems': ['5', '5', '6', '6'],
-      'correctMatches': [0, 0, 1, 1], // 15÷3=5, 20÷4=5, 18÷3=6, 12÷2=6
+      'correctMatches': [0, 0, 1, 1],
       'explanation': '15÷3=5, 20÷4=5, 18÷3=6, 12÷2=6',
     },
-    
-    // 12. Division Word Problem - Multiple Choice
     {
-      'id': 12,
-      'type': 'multiple_choice',
-      'operation': 'division',
+      'id': 12, 'type': 'multiple_choice', 'operation': 'division',
       'question': '36 candies shared equally among 4 children. How many each?',
-      'correctAnswer': 1,
-      'options': [8, 9, 10, 12],
+      'correctAnswer': 1, 'options': [8, 9, 10, 12],
       'explanation': '36 ÷ 4 = 9 candies each',
     },
-
-    // ===== MIXED OPERATIONS QUESTIONS (3 items) =====
-    // 13. Mixed Operations - Matching Type
+    // MIXED
     {
-      'id': 13,
-      'type': 'matching',
-      'operation': 'mixed',
+      'id': 13, 'type': 'matching', 'operation': 'mixed',
       'question': 'Match each equation with the correct answer:',
       'leftItems': ['8 + 5', '15 - 7', '4 × 3', '18 ÷ 2'],
       'rightItems': ['13', '8', '12', '9'],
       'correctMatches': [0, 1, 2, 3],
       'explanation': '8+5=13, 15-7=8, 4×3=12, 18÷2=9',
     },
-    
-    // 14. Mixed Operations - Drag Drop Sequence
     {
-      'id': 14,
-      'type': 'drag_drop_sequence',
-      'operation': 'mixed',
+      'id': 14, 'type': 'drag_drop_sequence', 'operation': 'mixed',
       'question': 'Complete the equations with the correct numbers:',
       'sequence': ['5 + __ = 12', '__ × 3 = 18', '20 - __ = 11', '__ ÷ 4 = 5'],
       'availableNumbers': ['7', '6', '9', '20', '8'],
@@ -16630,1612 +14693,643 @@ class _FundamentalOperationsExerciseScreenState extends State<FundamentalOperati
       'blankPositions': [0, 1, 2, 3],
       'explanation': '5+7=12, 6×3=18, 20-9=11, 20÷4=5',
     },
-    
-    // 15. Mixed Operations - Word Problem
     {
-      'id': 15,
-      'type': 'multiple_choice',
-      'operation': 'mixed',
+      'id': 15, 'type': 'multiple_choice', 'operation': 'mixed',
       'question': 'Ana has 24 apples. She gives 6 to Maria and divides the rest equally among 3 friends. How many does each friend get?',
-      'correctAnswer': 1,
-      'options': [5, 6, 7, 8],
-      'explanation': '24 - 5 = 19, then 19 ÷ 3 is not exact. Wait, 24-5=19, 19÷3=6.33? Let me check the problem...',
+      'correctAnswer': 1, 'options': [5, 6, 7, 8],
+      'explanation': '24 - 6 = 18, then 18 ÷ 3 = 6 apples each.',
     },
   ];
 
+  // ✅ All 4 lesson names exactly matching TopicsData titles.
+  // When the exercise is completed, we record the score under ALL 4 lessons
+  // so that each lesson's progress reaches 100%.
+  static const List<String> _fundamentalLessons = [
+    'Addition',
+    'Subtraction',
+    'Multiplication',
+    'Division',
+  ];
+
   @override
-  void initState() {
-    super.initState();
-    _initQuestion();
-  }
+  void initState() { super.initState(); _initQuestion(); }
 
   void _initQuestion() {
     _dragItemsInitialized = false;
-    _initDragItems();
-    _initMatchingSelections();
-    _initSequenceBlanks();
-    _initMatchBlanks();
-  }
-
-  void _initDragItems() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_order') {
-      _dragItems = List<String>.from(question['items'] as List);
+    final q = _questions[_currentQuestion];
+    if (q['type'] == 'drag_drop_match') {
+      _dragItems = List<String>.from(q['rightItems'] as List);
       _dragItems.shuffle();
-      _dragTargets = List.filled((question['items'] as List).length, '');
-    } else if (question['type'] == 'drag_drop_sequence') {
-      _dragItems = List<String>.from(question['availableNumbers'] as List);
+      _matchFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'drag_drop_order') {
+      _dragItems = List<String>.from(q['items'] as List);
       _dragItems.shuffle();
-      _dragTargets = List.filled((question['correctAnswer'] as List).length, '');
-    } else if (question['type'] == 'drag_drop_match') {
-      // For match type with rightItems
-      if (question.containsKey('rightItems')) {
-        _dragItems = List<String>.from(question['rightItems'] as List);
-        _dragItems.shuffle();
-        _dragTargets = List.filled((question['leftItems'] as List).length, '');
-      }
+      _matchFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'drag_drop_sequence') {
+      _dragItems = List<String>.from(q['availableNumbers'] as List);
+      _dragItems.shuffle();
+      _sequenceFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'matching') {
+      _matchingSelections[_currentQuestion] = {};
     }
     _dragItemsInitialized = true;
   }
 
-  void _initMatchingSelections() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'matching') {
-      _matchingSelections[_currentQuestion] = {};
-    }
+  void _updateMatchingSelection(int li, int ri) {
+    setState(() { _matchingSelections[_currentQuestion] ??= {}; _matchingSelections[_currentQuestion]![li] = ri; });
   }
 
-  void _initSequenceBlanks() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_sequence') {
-      _sequenceFilledBlanks[_currentQuestion] = {};
-    }
+  void _updateMatchBlank(int i, String v) {
+    setState(() { _matchFilledBlanks[_currentQuestion] ??= {}; _matchFilledBlanks[_currentQuestion]![i] = v; _dragItems.remove(v); });
   }
 
-  void _initMatchBlanks() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_match') {
-      _matchFilledBlanks[_currentQuestion] = {};
-    }
+  void _updateSequenceBlank(int pos, String v) {
+    setState(() { _sequenceFilledBlanks[_currentQuestion] ??= {}; _sequenceFilledBlanks[_currentQuestion]![pos] = v; _dragItems.remove(v); });
   }
 
-  void _updateMatchingSelection(int leftIndex, int rightIndex) {
-    setState(() {
-      if (!_matchingSelections.containsKey(_currentQuestion)) {
-        _matchingSelections[_currentQuestion] = {};
-      }
-      _matchingSelections[_currentQuestion]![leftIndex] = rightIndex;
-    });
-  }
-
-  void _updateSequenceBlank(int position, String number) {
-    setState(() {
-      if (!_sequenceFilledBlanks.containsKey(_currentQuestion)) {
-        _sequenceFilledBlanks[_currentQuestion] = {};
-      }
-      _sequenceFilledBlanks[_currentQuestion]![position] = number;
-      _dragItems.remove(number);
-    });
-  }
-
-  void _updateMatchBlank(int index, String value) {
-    setState(() {
-      if (!_matchFilledBlanks.containsKey(_currentQuestion)) {
-        _matchFilledBlanks[_currentQuestion] = {};
-      }
-      _matchFilledBlanks[_currentQuestion]![index] = value;
-      _dragItems.remove(value);
-    });
-  }
-
-  bool _isMatchingComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'matching') return true;
-    
-    final leftItems = question['leftItems'] as List;
-    final selections = _matchingSelections[questionIndex];
-    
-    if (selections == null) return false;
-    return selections.length == leftItems.length;
-  }
-
-  bool _isSequenceComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'drag_drop_sequence') return true;
-    
-    final correctAnswer = question['correctAnswer'] as List;
-    final blanks = _sequenceFilledBlanks[questionIndex];
-    
-    if (blanks == null) return false;
-    return blanks.length == correctAnswer.length;
-  }
-
-  bool _isMatchComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'drag_drop_match') return true;
-    
-    final leftItems = question['leftItems'] as List;
-    final matches = _matchFilledBlanks[questionIndex];
-    
-    if (matches == null) return false;
-    return matches.length == leftItems.length;
-  }
-
-  bool _isDragDropComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (!question['type'].toString().startsWith('drag_drop')) return true;
-    
-    if (question['type'] == 'drag_drop_order') {
-      return !_dragTargets.contains('');
-    } else if (question['type'] == 'drag_drop_sequence') {
-      return _isSequenceComplete(questionIndex);
-    } else if (question['type'] == 'drag_drop_match') {
-      return _isMatchComplete(questionIndex);
-    }
-    return false;
-  }
+  bool _isMatchComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'drag_drop_match') return true; final m = _matchFilledBlanks[qi]; return m != null && m.length == (q['leftItems'] as List).length; }
+  bool _isOrderComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'drag_drop_order') return true; final m = _matchFilledBlanks[qi]; return m != null && m.length == (q['items'] as List).length; }
+  bool _isSeqComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'drag_drop_sequence') return true; final b = _sequenceFilledBlanks[qi]; return b != null && b.length == (q['correctAnswer'] as List).length; }
+  bool _isMatchingComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'matching') return true; final m = _matchingSelections[qi]; return m != null && m.length == (q['leftItems'] as List).length; }
 
   void _answerQuestion(dynamic answer) {
-    if (!_answeredQuestions[_currentQuestion]) {
-      setState(() {
-        _answeredQuestions[_currentQuestion] = true;
-        _userAnswers[_currentQuestion] = answer;
-
-        final question = _questions[_currentQuestion];
-        bool isCorrect = false;
-
-        if (question['type'] == 'multiple_choice') {
-          isCorrect = answer == question['correctAnswer'];
-        } else if (question['type'] == 'matching') {
-          isCorrect = _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
-        } else if (question['type'] == 'drag_drop_order') {
-          isCorrect = _checkDragDropOrder(answer as List<String>, question['correctOrder']);
-        } else if (question['type'] == 'drag_drop_sequence') {
-          isCorrect = _checkDragDropSequence(answer as List<String>, question['correctAnswer']);
-        } else if (question['type'] == 'drag_drop_match') {
-          isCorrect = _checkDragDropMatch(answer as List<String>, question['correctMatches']);
-        }
-
-        if (isCorrect) {
-          _score++;
-        }
-        
-        if (_answeredQuestions.every((answered) => answered)) {
-          _exerciseCompleted = true;
-          _recordExerciseResults();
-        }
-      });
-    }
+    if (_answeredQuestions[_currentQuestion]) return;
+    setState(() {
+      _answeredQuestions[_currentQuestion] = true;
+      _userAnswers[_currentQuestion] = answer;
+      final q = _questions[_currentQuestion];
+      bool isCorrect = false;
+      if (q['type'] == 'multiple_choice') {
+        isCorrect = answer == q['correctAnswer'];
+      } else if (q['type'] == 'matching') {
+        isCorrect = _checkMatching(answer as Map<int, int>, q['correctMatches']);
+      } else if (q['type'] == 'drag_drop_order') {
+        isCorrect = _checkOrder(answer as List<String>, q['correctOrder']);
+      } else if (q['type'] == 'drag_drop_match') {
+        // ✅ FIXED
+        isCorrect = _checkDDMatch(answer as List<String>, q['correctMatches'], q['rightItems']);
+      } else if (q['type'] == 'drag_drop_sequence') {
+        isCorrect = _checkSeq(answer as List<String>, q['correctAnswer']);
+      }
+      if (isCorrect) _score++;
+      if (_answeredQuestions.every((a) => a)) {
+        _exerciseCompleted = true;
+        _recordExerciseResults();
+      }
+    });
   }
 
-  bool _checkMatchingAnswer(Map<int, int> userMatches, List<int> correctMatches) {
+  bool _checkMatching(Map<int, int> user, List<int> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
+    return true;
+  }
+
+  bool _checkOrder(List<String> user, List<String> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
+    return true;
+  }
+
+  // ✅ FIXED: validates each drag & drop match position correctly
+  bool _checkDDMatch(List<String> userMatches, List<int> correctMatches, List rightItems) {
     if (userMatches.length != correctMatches.length) return false;
-    
     for (int i = 0; i < correctMatches.length; i++) {
-      if (userMatches[i] != correctMatches[i]) return false;
+      final expected = rightItems[correctMatches[i]] as String;
+      if (userMatches[i] != expected) return false;
     }
     return true;
   }
 
-  bool _checkDragDropOrder(List<String> userOrder, List<String> correctOrder) {
-    if (userOrder.length != correctOrder.length) return false;
-    
-    for (int i = 0; i < correctOrder.length; i++) {
-      if (userOrder[i] != correctOrder[i]) return false;
-    }
+  bool _checkSeq(List<String> user, List<String> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
     return true;
   }
 
-  bool _checkDragDropSequence(List<String> userAnswer, List<String> correctAnswer) {
-    if (userAnswer.length != correctAnswer.length) return false;
-    
-    for (int i = 0; i < correctAnswer.length; i++) {
-      if (userAnswer[i] != correctAnswer[i]) return false;
-    }
-    return true;
-  }
-
-  bool _checkDragDropMatch(List<String> userMatches, List<int> correctMatches) {
-    if (userMatches.length != correctMatches.length) return false;
-    
-    for (int i = 0; i < correctMatches.length; i++) {
-      // Need to match based on right items indices
-      // This is simplified - in real implementation would need proper checking
-    }
-    return true;
-  }
-
+  // ✅ KEY FIX: Records the exercise score under ALL 4 lesson names
+  // (Addition, Subtraction, Multiplication, Division) so that each
+  // lesson's getLessonProgress() gets exercisesCompleted > 0,
+  // which allows the progress to reach 100% after videos are done.
   void _recordExerciseResults() {
-    final percentage = (_score / _questions.length * 100).toInt();
-    
-    progressManager.recordExerciseScore(
-      widget.lessonName,
-      widget.language,
-      0,
-      'Fundamental Operations Comprehensive Exercise',
-      _score,
-      _questions.length,
-      _score,
-      percentage.toDouble(),
-    );
+    final pct = (_score / _questions.length * 100).toInt();
+    for (final lessonName in _fundamentalLessons) {
+      progressManager.recordExerciseScore(
+        lessonName,
+        widget.language,
+        0,
+        'Fundamental Operations Comprehensive Exercise',
+        _score,
+        _questions.length,
+        _score,
+        pct.toDouble(),
+      );
+    }
   }
 
   void _nextQuestion() {
     if (_currentQuestion < _questions.length - 1) {
-      setState(() {
-        _currentQuestion++;
-        _initQuestion();
-      });
+      setState(() { _currentQuestion++; _initQuestion(); });
     }
   }
 
   void _previousQuestion() {
     if (_currentQuestion > 0) {
-      setState(() {
-        _currentQuestion--;
-        _initQuestion();
-      });
+      setState(() { _currentQuestion--; _initQuestion(); });
     }
   }
 
   void _restartExercise() {
     setState(() {
-      _currentQuestion = 0;
-      _score = 0;
-      _exerciseCompleted = false;
+      _currentQuestion = 0; _score = 0; _exerciseCompleted = false;
       _userAnswers = List.filled(_questions.length, null);
       _answeredQuestions = List.filled(_questions.length, false);
-      _matchingSelections.clear();
-      _sequenceFilledBlanks.clear();
-      _matchFilledBlanks.clear();
-      _initQuestion();
+      _matchingSelections.clear(); _matchFilledBlanks.clear();
+      _sequenceFilledBlanks.clear(); _initQuestion();
     });
+  }
+
+  void _submitInteractiveAnswer(Map<String, dynamic> q) {
+    final t = q['type'] as String;
+    if (t == 'matching') {
+      if (!_isMatchingComplete(_currentQuestion)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all matches first'), duration: Duration(seconds: 2))); return;
+      }
+      _answerQuestion(Map<int, int>.from(_matchingSelections[_currentQuestion]!));
+    } else if (t == 'drag_drop_match') {
+      if (!_isMatchComplete(_currentQuestion)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all matches'), duration: Duration(seconds: 2))); return;
+      }
+      final m = _matchFilledBlanks[_currentQuestion]!;
+      final List<String> ans = [];
+      for (int i = 0; i < (q['leftItems'] as List).length; i++) ans.add(m[i] ?? '');
+      _answerQuestion(ans);
+    } else if (t == 'drag_drop_order') {
+      if (!_isOrderComplete(_currentQuestion)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all positions'), duration: Duration(seconds: 2))); return;
+      }
+      final m = _matchFilledBlanks[_currentQuestion]!;
+      final List<String> ans = [];
+      for (int i = 0; i < (q['items'] as List).length; i++) ans.add(m[i] ?? '');
+      _answerQuestion(ans);
+    } else if (t == 'drag_drop_sequence') {
+      if (!_isSeqComplete(_currentQuestion)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all blanks'), duration: Duration(seconds: 2))); return;
+      }
+      final b = _sequenceFilledBlanks[_currentQuestion]!;
+      final bp = q['blankPositions'] as List;
+      final List<String> ans = [];
+      for (int i = 0; i < bp.length; i++) ans.add(b[bp[i]] ?? '');
+      _answerQuestion(ans);
+    }
+  }
+
+  bool _isAnswerCorrect(Map<String, dynamic> q) {
+    final a = _userAnswers[_currentQuestion];
+    if (a == null) return false;
+    if (q['type'] == 'multiple_choice') return a == q['correctAnswer'];
+    if (q['type'] == 'matching') return _checkMatching(a as Map<int, int>, q['correctMatches']);
+    if (q['type'] == 'drag_drop_order') return _checkOrder(a as List<String>, q['correctOrder']);
+    if (q['type'] == 'drag_drop_sequence') return _checkSeq(a as List<String>, q['correctAnswer']);
+    return true;
+  }
+
+  String _getOpName(String op) {
+    switch (op) {
+      case 'addition': return 'ADDITION';
+      case 'subtraction': return 'SUBTRACTION';
+      case 'multiplication': return 'MULTIPLICATION';
+      case 'division': return 'DIVISION';
+      default: return 'MIXED';
+    }
+  }
+
+  Color _getOpColor(String op) {
+    switch (op) {
+      case 'addition': return Colors.blue;
+      case 'subtraction': return Colors.red;
+      case 'multiplication': return Colors.green;
+      case 'division': return Colors.purple;
+      default: return Colors.orange;
+    }
+  }
+
+  Color _getTypeColor(String t) {
+    if (t == 'multiple_choice') return Colors.blue;
+    if (t == 'matching') return Colors.purple;
+    return Colors.orange;
+  }
+
+  String _getTypeName(String t) {
+    if (t == 'multiple_choice') return 'MULTIPLE CHOICE';
+    if (t == 'matching') return 'MATCHING TYPE';
+    if (t == 'drag_drop_order') return 'DRAG & DROP - ORDER';
+    if (t == 'drag_drop_sequence') return 'DRAG & DROP - EQUATION';
+    if (t == 'drag_drop_match') return 'DRAG & DROP - MATCH';
+    return '';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_exerciseCompleted) {
-      return _buildResultsScreen();
-    }
-
-    final question = _questions[_currentQuestion];
-    final screenWidth = MediaQuery.of(context).size.width;
-    final operation = question['operation'] as String;
+    if (_exerciseCompleted) return _buildResultsScreen();
+    final q = _questions[_currentQuestion];
+    final sw = MediaQuery.of(context).size.width;
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Fundamental Operations',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        elevation: 0,
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)),
+        title: const Text('Fundamental Operations', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        centerTitle: true, elevation: 0,
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              // Progress header
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _getOperationColor(operation).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _getOperationColor(operation), width: 1),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Question ${_currentQuestion + 1}/${_questions.length}',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.04,
-                            fontWeight: FontWeight.bold,
-                            color: _getOperationColor(operation),
-                          ),
-                        ),
-                        Text(
-                          _getOperationName(operation),
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            color: _getOperationColor(operation).withOpacity(0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.amber, width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.star, color: Colors.amber, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$_score',
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.04,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Operation badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getOperationColor(operation),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  operation.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Question type badge
+      body: SafeArea(child: SingleChildScrollView(
+        padding: const EdgeInsets.all(12),
+        child: Column(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: _getOpColor(q['operation']).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _getOpColor(q['operation']), width: 1),
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Question ${_currentQuestion + 1}/${_questions.length}',
+                  style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold, color: _getOpColor(q['operation']))),
+                Text(_getOpName(q['operation']),
+                  style: TextStyle(fontSize: sw * 0.035, color: _getOpColor(q['operation']).withOpacity(0.8))),
+              ]),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getTypeColor(question['type']),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _getTypeName(question['type']),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                  ),
-                ),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber)),
+                child: Row(children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 16), const SizedBox(width: 4),
+                  Text('$_score', style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold, color: Colors.amber[800])),
+                ]),
               ),
-
-              const SizedBox(height: 12),
-
-              // Question card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.black, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      question['question'] as String,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 15),
-
-                    // Visual content based on question type
-                    if (question['type'] == 'multiple_choice')
-                      _buildMultipleChoice(question, screenWidth)
-                    else if (question['type'] == 'matching')
-                      _buildMatchingType(question, screenWidth)
-                    else if (question['type'] == 'drag_drop_order' && _dragItemsInitialized)
-                      _buildDragDropOrder(question, screenWidth)
-                    else if (question['type'] == 'drag_drop_sequence' && _dragItemsInitialized)
-                      _buildDragDropSequence(question, screenWidth)
-                    else if (question['type'] == 'drag_drop_match' && _dragItemsInitialized)
-                      _buildDragDropMatch(question, screenWidth),
-
-                    const SizedBox(height: 15),
-
-                    // Submit button for interactive types
-                    if (!_answeredQuestions[_currentQuestion] && 
-                        (question['type'] == 'matching' || 
-                         question['type'].toString().startsWith('drag_drop')))
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(180, 40),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                        ),
-                        onPressed: () => _submitInteractiveAnswer(question),
-                        child: const Text('Submit Answer', style: TextStyle(fontSize: 14)),
-                      ),
-
-                    const SizedBox(height: 15),
-
-                    // Explanation
-                    if (_answeredQuestions[_currentQuestion])
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: _isAnswerCorrect(question) ? Colors.green[50] : Colors.red[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _isAnswerCorrect(question) ? Colors.green : Colors.red,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          _isAnswerCorrect(question)
-                              ? '✓ Correct! ${question['explanation'] as String}'
-                              : '✗ ${question['explanation'] as String}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: screenWidth > 600 ? 15 : 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
+            ]),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(color: _getTypeColor(q['type']), borderRadius: BorderRadius.circular(20)),
+            child: Text(_getTypeName(q['type']), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity, padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: Colors.white, borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.black, width: 1.5),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5, offset: const Offset(0, 2))],
+            ),
+            child: Column(children: [
+              Text(q['question'] as String,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
               const SizedBox(height: 15),
-
-              // Navigation buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _currentQuestion > 0 ? _previousQuestion : null,
-                      child: const Text('Previous', style: TextStyle(fontSize: 14)),
-                    ),
+              if (q['type'] == 'multiple_choice') _buildMC(q, sw)
+              else if (q['type'] == 'matching') _buildMatching(q, sw)
+              else if (q['type'] == 'drag_drop_order' && _dragItemsInitialized) _buildDDOrder(q, sw)
+              else if (q['type'] == 'drag_drop_match' && _dragItemsInitialized) _buildDDMatch(q, sw)
+              else if (q['type'] == 'drag_drop_sequence' && _dragItemsInitialized) _buildDDSeq(q, sw),
+              const SizedBox(height: 15),
+              if (!_answeredQuestions[_currentQuestion] &&
+                  (q['type'] == 'matching' || q['type'].toString().startsWith('drag_drop')))
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green, foregroundColor: Colors.white,
+                    minimumSize: const Size(180, 40),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null,
-                      child: Text(
-                        _currentQuestion == _questions.length - 1 ? 'Finish' : 'Next',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ===== MULTIPLE CHOICE BUILDER =====
-  Widget _buildMultipleChoice(Map<String, dynamic> question, double screenWidth) {
-    return Column(
-      children: [
-        // Visual representation for object addition/subtraction
-        if (question.containsKey('leftObjects') && question.containsKey('rightObjects'))
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _getOperationColor(question['operation']), width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // Left group
-                Expanded(
-                  child: Column(
-                    children: [
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        alignment: WrapAlignment.center,
-                        children: (question['leftObjects'] as List).map((obj) {
-                          return Text(obj as String, style: const TextStyle(fontSize: 22));
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 2),
-                      Text('${question['leftCount']}', style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
+                  onPressed: () => _submitInteractiveAnswer(q),
+                  child: const Text('Submit Answer', style: TextStyle(fontSize: 14)),
                 ),
-                
+              const SizedBox(height: 15),
+              if (_answeredQuestions[_currentQuestion])
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  width: double.infinity, padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _isAnswerCorrect(q) ? Colors.green[50] : Colors.red[50],
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _isAnswerCorrect(q) ? Colors.green : Colors.red, width: 1.5),
+                  ),
                   child: Text(
-                    question['operation'] == 'addition' ? '+' : '-',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    _isAnswerCorrect(q) ? '✓ Correct! ${q['explanation']}' : '✗ ${q['explanation']}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: sw > 600 ? 15 : 13, fontWeight: FontWeight.w500),
                   ),
                 ),
-                
-                // Right group
-                Expanded(
-                  child: Column(
-                    children: [
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        alignment: WrapAlignment.center,
-                        children: (question['rightObjects'] as List).map((obj) {
-                          return Text(obj as String, style: const TextStyle(fontSize: 22));
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 2),
-                      Text('${question['rightCount']}', style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          )
-        else if (question.containsKey('totalObjects'))
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _getOperationColor(question['operation']), width: 1.5),
-            ),
-            child: Column(
-              children: [
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  alignment: WrapAlignment.center,
-                  children: (question['totalObjects'] as List).map((obj) {
-                    return Text(obj as String, style: const TextStyle(fontSize: 22));
-                  }).toList(),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Remove ${question['removeCount']}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
+            ]),
           ),
-
-        const SizedBox(height: 15),
-
-        // Options grid
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: screenWidth > 600 ? 2.2 : 2.0,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: (question['options'] as List).length,
-          itemBuilder: (context, index) {
-            final isAnswered = _answeredQuestions[_currentQuestion];
-            final isSelected = _userAnswers[_currentQuestion] == index;
-            final isCorrect = index == (question['correctAnswer'] as int);
-
-            Color buttonColor = Colors.white;
-            if (isAnswered) {
-              if (isSelected && isCorrect) {
-                buttonColor = Colors.green;
-              } else if (isSelected && !isCorrect) {
-                buttonColor = Colors.red;
-              } else if (isCorrect) {
-                buttonColor = Colors.green[100]!;
-              }
-            }
-
-            return GestureDetector(
-              onTap: isAnswered ? null : () => _answerQuestion(index),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  color: buttonColor,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isSelected ? Colors.black : Colors.grey[300]!,
-                    width: isSelected ? 2 : 1,
-                  ),
-                  boxShadow: [
-                    if (!isAnswered)
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 2,
-                        offset: const Offset(0, 1),
-                      ),
-                  ],
-                ),
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Text(
-                      '${(question['options'] as List)[index]}',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: screenWidth > 600 ? 18 : 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
+          const SizedBox(height: 15),
+          Row(children: [
+            Expanded(child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white, foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)),
+                padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1,
               ),
-            );
-          },
-        ),
-      ],
+              onPressed: _currentQuestion > 0 ? _previousQuestion : null,
+              child: const Text('Previous', style: TextStyle(fontSize: 14)),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)),
+                padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1,
+              ),
+              onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null,
+              child: Text(
+                _currentQuestion == _questions.length - 1 ? 'Finish' : 'Next',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            )),
+          ]),
+        ]),
+      )),
     );
   }
 
-  // ===== MATCHING TYPE BUILDER =====
-  Widget _buildMatchingType(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    final rightItems = question['rightItems'] as List;
-    
-    return Column(
-      children: [
+  Widget _buildMC(Map<String, dynamic> q, double sw) {
+    return Column(children: [
+      if (q.containsKey('leftObjects') && q.containsKey('rightObjects'))
         Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.purple[200]!, width: 1.5),
-          ),
-          child: Column(
-            children: [
-              // Headers
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.purple[100],
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'Equation',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.purple[100],
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'Answer',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 8),
-              
-              // Matching rows
-              ...List.generate(leftItems.length, (index) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      // Left item
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.grey[300]!),
-                          ),
-                          child: Text(
-                            leftItems[index] as String,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ),
-                      
-                      const SizedBox(width: 8),
-                      
-                      // Right dropdown
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.purple[300]!),
-                          ),
-                          child: DropdownButton<int>(
-                            value: _matchingSelections[_currentQuestion]?[index],
-                            hint: const Text('Select', style: TextStyle(fontSize: 12)),
-                            isExpanded: true,
-                            underline: const SizedBox(),
-                            iconSize: 20,
-                            items: List.generate(rightItems.length, (i) {
-                              return DropdownMenuItem<int>(
-                                value: i,
-                                child: Text(rightItems[i] as String, style: const TextStyle(fontSize: 12)),
-                              );
-                            }),
-                            onChanged: _answeredQuestions[_currentQuestion] 
-                                ? null 
-                                : (value) {
-                                    _updateMatchingSelection(index, value!);
-                                  },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _getOpColor(q['operation']), width: 1.5)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+            Expanded(child: Column(children: [
+              Wrap(spacing: 4, runSpacing: 4, alignment: WrapAlignment.center,
+                children: (q['leftObjects'] as List).map((o) => Text(o as String, style: const TextStyle(fontSize: 22))).toList()),
+              Text('${q['leftCount']}', style: const TextStyle(fontSize: 12)),
+            ])),
+            Container(margin: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(q['operation'] == 'addition' ? '+' : '-',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+            Expanded(child: Column(children: [
+              Wrap(spacing: 4, runSpacing: 4, alignment: WrapAlignment.center,
+                children: (q['rightObjects'] as List).map((o) => Text(o as String, style: const TextStyle(fontSize: 22))).toList()),
+              Text('${q['rightCount']}', style: const TextStyle(fontSize: 12)),
+            ])),
+          ]),
+        )
+      else if (q.containsKey('totalObjects'))
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _getOpColor(q['operation']), width: 1.5)),
+          child: Column(children: [
+            Wrap(spacing: 4, runSpacing: 4, alignment: WrapAlignment.center,
+              children: (q['totalObjects'] as List).map((o) => Text(o as String, style: const TextStyle(fontSize: 22))).toList()),
+            const SizedBox(height: 4),
+            Text('Remove ${q['removeCount']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ]),
         ),
-      ],
+      const SizedBox(height: 15),
+      GridView.builder(
+        shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2, childAspectRatio: sw > 600 ? 2.2 : 2.0, crossAxisSpacing: 8, mainAxisSpacing: 8),
+        itemCount: (q['options'] as List).length,
+        itemBuilder: (context, i) {
+          final isAnswered = _answeredQuestions[_currentQuestion];
+          final isSel = _userAnswers[_currentQuestion] == i;
+          final isCorrect = i == (q['correctAnswer'] as int);
+          Color c = Colors.white;
+          if (isAnswered) { if (isSel && isCorrect) c = Colors.green; else if (isSel) c = Colors.red; else if (isCorrect) c = Colors.green[100]!; }
+          return GestureDetector(
+            onTap: isAnswered ? null : () => _answerQuestion(i),
+            child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isSel ? Colors.black : Colors.grey[300]!, width: isSel ? 2 : 1)),
+              child: Center(child: Padding(padding: const EdgeInsets.all(6),
+                child: Text('${(q['options'] as List)[i]}', textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: sw > 600 ? 18 : 16, fontWeight: FontWeight.bold))))),
+          );
+        }),
+    ]);
+  }
+
+  Widget _buildMatching(Map<String, dynamic> q, double sw) {
+    final left = q['leftItems'] as List; final right = q['rightItems'] as List;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.purple[200]!, width: 1.5)),
+      child: Column(children: [
+        Row(children: [
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Equation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center))),
+          const SizedBox(width: 8),
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Answer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center))),
+        ]),
+        const SizedBox(height: 8),
+        ...List.generate(left.length, (i) => Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(children: [
+            Expanded(child: Container(padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey[300]!)),
+              child: Text(left[i] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)))),
+            const SizedBox(width: 8),
+            Expanded(child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.purple[300]!)),
+              child: DropdownButton<int>(
+                value: _matchingSelections[_currentQuestion]?[i],
+                hint: const Text('Select', style: TextStyle(fontSize: 12)),
+                isExpanded: true, underline: const SizedBox(), iconSize: 20,
+                items: List.generate(right.length, (j) => DropdownMenuItem<int>(value: j, child: Text(right[j] as String, style: const TextStyle(fontSize: 12)))),
+                onChanged: _answeredQuestions[_currentQuestion] ? null : (v) => _updateMatchingSelection(i, v!),
+              ))),
+          ])),
+        ),
+      ]),
     );
   }
 
-  // ===== DRAG AND DROP ORDER BUILDER =====
-  Widget _buildDragDropOrder(Map<String, dynamic> question, double screenWidth) {
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Drag items
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.blue, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag to arrange:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _dragItems.map((item) {
-                      return Draggable<String>(
-                        data: item,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.blue,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              item,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.blue, width: 1.5),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Drop targets
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.green, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drop in correct order:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(_dragTargets.length, (index) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: DragTarget<String>(
-                          builder: (context, candidateData, rejectedData) {
-                            return Container(
-                              width: 35,
-                              height: 35,
-                              decoration: BoxDecoration(
-                                color: _dragTargets[index].isEmpty
-                                    ? Colors.green[100]
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: _dragTargets[index].isEmpty
-                                      ? Colors.green
-                                      : Colors.green[700]!,
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  _dragTargets[index],
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                          onWillAccept: (data) {
-                            return _dragTargets[index].isEmpty;
-                          },
-                          onAccept: (data) {
-                            setState(() {
-                              _dragTargets[index] = data;
-                              _dragItems.remove(data);
-                            });
-                          },
-                        ),
-                      );
-                    }),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+  Widget _buildDDOrder(Map<String, dynamic> q, double sw) {
+    final items = q['items'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag to arrange:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, runSpacing: 6, children: _dragItems.map((item) => Draggable<String>(
+            data: item,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.blue, width: 1.5)), child: Text(item, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold))),
+          )).toList()),
+        ]),
+      ),
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green, width: 1.5)),
+        child: Column(children: [
+          const Text('Drop in correct order:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(items.length, (i) {
+            final fv = _matchFilledBlanks[_currentQuestion]?[i];
+            return Padding(padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: DragTarget<String>(
+                builder: (ctx, cd, rd) => Container(width: 35, height: 35,
+                  decoration: BoxDecoration(color: fv == null ? Colors.green[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.green : Colors.green[700]!, width: 1.5)),
+                  child: Center(child: Text(fv ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)))),
+                onWillAccept: (d) => _matchFilledBlanks[_currentQuestion]?[i] == null,
+                onAccept: (d) { _updateMatchBlank(i, d); ss(() {}); },
+              ));
+          })),
+        ]),
+      ),
+    ]));
   }
 
-  // ===== DRAG AND DROP SEQUENCE BUILDER =====
-  Widget _buildDragDropSequence(Map<String, dynamic> question, double screenWidth) {
-    final sequence = question['sequence'] as List;
-    final blankPositions = question['blankPositions'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Sequence with blanks
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.purple[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.purple, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Complete the equations:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+  Widget _buildDDMatch(Map<String, dynamic> q, double sw) {
+    final left = q['leftItems'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.amber[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber, width: 1.5)),
+        child: Column(children: List.generate(left.length, (i) {
+          final fv = _matchFilledBlanks[_currentQuestion]?[i];
+          return Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [
+            Expanded(flex: 2, child: Container(padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.amber[300]!)),
+              child: Text(left[i] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13)))),
+            const SizedBox(width: 8),
+            Expanded(child: DragTarget<String>(
+              builder: (ctx, cd, rd) => Container(height: 40,
+                decoration: BoxDecoration(color: fv == null ? Colors.amber[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.amber : Colors.amber[700]!, width: 1.5)),
+                child: Center(child: Text(fv ?? 'Drop', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: fv == null ? Colors.grey : Colors.black)))),
+              onWillAccept: (d) => _matchFilledBlanks[_currentQuestion]?[i] == null,
+              onAccept: (d) { _updateMatchBlank(i, d); ss(() {}); },
+            )),
+          ]));
+        })),
+      ),
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag answers:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, runSpacing: 6, children: _dragItems.map((item) => Draggable<String>(
+            data: item,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 3, offset: const Offset(0, 1))]), child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.red, width: 1.5)), child: Text(item, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+          )).toList()),
+        ]),
+      ),
+    ]));
+  }
+
+  Widget _buildDDSeq(Map<String, dynamic> q, double sw) {
+    final sequence = q['sequence'] as List; final bp = q['blankPositions'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.purple[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.purple, width: 1.5)),
+        child: Column(children: [
+          const Text('Complete the equations:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 10),
+          Column(children: List.generate(sequence.length, (i) {
+            if (bp.contains(i)) {
+              final fv = _sequenceFilledBlanks[_currentQuestion]?[i];
+              return Padding(padding: const EdgeInsets.only(bottom: 6),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text((sequence[i] as String).split('__')[0], style: const TextStyle(fontSize: 14)),
+                  DragTarget<String>(
+                    builder: (ctx, cd, rd) => Container(width: 35, height: 35, margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(color: fv == null ? Colors.purple[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.purple : Colors.purple[700]!, width: 1.5)),
+                      child: Center(child: Text(fv ?? '?', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)))),
+                    onWillAccept: (d) => _sequenceFilledBlanks[_currentQuestion]?[i] == null,
+                    onAccept: (d) { _updateSequenceBlank(i, d); ss(() {}); },
                   ),
-                  const SizedBox(height: 10),
-                  Column(
-                    children: List.generate(sequence.length, (index) {
-                      if (blankPositions.contains(index)) {
-                        final filledValue = _sequenceFilledBlanks[_currentQuestion]?[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                (sequence[index] as String).split('__')[0],
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                              DragTarget<String>(
-                                builder: (context, candidateData, rejectedData) {
-                                  return Container(
-                                    width: 35,
-                                    height: 35,
-                                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                                    decoration: BoxDecoration(
-                                      color: filledValue == null
-                                          ? Colors.purple[100]
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: filledValue == null
-                                            ? Colors.purple
-                                            : Colors.purple[700]!,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        filledValue ?? '?',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                                onWillAccept: (data) {
-                                  return _sequenceFilledBlanks[_currentQuestion]?[index] == null;
-                                },
-                                onAccept: (data) {
-                                  _updateSequenceBlank(index, data);
-                                },
-                              ),
-                              Text(
-                                (sequence[index] as String).split('__')[1],
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ],
-                          ),
-                        );
-                      } else {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Text(
-                            sequence[index] as String,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                          ),
-                        );
-                      }
-                    }),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Drag items (available numbers)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.teal[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.teal, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag numbers:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _dragItems.map((num) {
-                      return Draggable<String>(
-                        data: num,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.teal,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              num,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            num,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.teal, width: 1.5),
-                          ),
-                          child: Text(
-                            num,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ===== DRAG AND DROP MATCH BUILDER =====
-  Widget _buildDragDropMatch(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Left items with drop targets
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.amber, width: 1.5),
-              ),
-              child: Column(
-                children: List.generate(leftItems.length, (index) {
-                  final filledValue = _matchFilledBlanks[_currentQuestion]?[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        // Left item
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.amber[300]!),
-                            ),
-                            child: Text(
-                              leftItems[index] as String,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(width: 8),
-                        
-                        // Drop target for match
-                        Expanded(
-                          child: DragTarget<String>(
-                            builder: (context, candidateData, rejectedData) {
-                              return Container(
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: filledValue == null
-                                      ? Colors.amber[100]
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: filledValue == null
-                                        ? Colors.amber
-                                        : Colors.amber[700]!,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    filledValue ?? 'Drop',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: filledValue == null ? Colors.grey : Colors.black,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                            onWillAccept: (data) {
-                              return _matchFilledBlanks[_currentQuestion]?[index] == null;
-                            },
-                            onAccept: (data) {
-                              _updateMatchBlank(index, data);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Drag items
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag answers:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _dragItems.map((item) {
-                      return Draggable<String>(
-                        data: item,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              item,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.red, width: 1.5),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _submitInteractiveAnswer(Map<String, dynamic> question) {
-    dynamic answer;
-    
-    if (question['type'] == 'matching') {
-      final matches = _matchingSelections[_currentQuestion];
-      if (matches == null || matches.length != (question['leftItems'] as List).length) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all matches first'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      answer = matches;
-    } 
-    else if (question['type'] == 'drag_drop_order') {
-      if (_dragTargets.contains('')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please fill all positions'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      answer = List<String>.from(_dragTargets);
-    } 
-    else if (question['type'] == 'drag_drop_sequence') {
-      if (!_isSequenceComplete(_currentQuestion)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all blanks'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      final blanks = _sequenceFilledBlanks[_currentQuestion]!;
-      final List<String> answerList = [];
-      final blankPositions = question['blankPositions'] as List;
-      for (int i = 0; i < blankPositions.length; i++) {
-        answerList.add(blanks[blankPositions[i]] ?? '');
-      }
-      answer = answerList;
-    } 
-    else if (question['type'] == 'drag_drop_match') {
-      if (!_isMatchComplete(_currentQuestion)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all matches'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      final matches = _matchFilledBlanks[_currentQuestion]!;
-      final List<String> answerList = [];
-      for (int i = 0; i < (question['leftItems'] as List).length; i++) {
-        answerList.add(matches[i] ?? '');
-      }
-      answer = answerList;
-    }
-    
-    _answerQuestion(answer);
-  }
-
-  bool _isAnswerCorrect(Map<String, dynamic> question) {
-    final answer = _userAnswers[_currentQuestion];
-    if (answer == null) return false;
-    
-    if (question['type'] == 'multiple_choice') {
-      return answer == question['correctAnswer'];
-    } else if (question['type'] == 'matching') {
-      return _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
-    } else if (question['type'] == 'drag_drop_order') {
-      return _checkDragDropOrder(answer as List<String>, question['correctOrder']);
-    } else if (question['type'] == 'drag_drop_sequence') {
-      return _checkDragDropSequence(answer as List<String>, question['correctAnswer']);
-    }
-    return true;
-  }
-
-  Color _getOperationColor(String operation) {
-    switch (operation) {
-      case 'addition':
-        return Colors.blue;
-      case 'subtraction':
-        return Colors.red;
-      case 'multiplication':
-        return Colors.green;
-      case 'division':
-        return Colors.purple;
-      case 'mixed':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getOperationName(String operation) {
-    switch (operation) {
-      case 'addition':
-        return 'ADDITION';
-      case 'subtraction':
-        return 'SUBTRACTION';
-      case 'multiplication':
-        return 'MULTIPLICATION';
-      case 'division':
-        return 'DIVISION';
-      case 'mixed':
-        return 'MIXED';
-      default:
-        return '';
-    }
-  }
-
-  Color _getTypeColor(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return Colors.blue;
-      case 'matching':
-        return Colors.purple;
-      case 'drag_drop_order':
-      case 'drag_drop_sequence':
-      case 'drag_drop_match':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getTypeName(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return 'MULTIPLE CHOICE';
-      case 'matching':
-        return 'MATCHING TYPE';
-      case 'drag_drop_order':
-        return 'DRAG & DROP - ORDER';
-      case 'drag_drop_sequence':
-        return 'DRAG & DROP - EQUATION';
-      case 'drag_drop_match':
-        return 'DRAG & DROP - MATCH';
-      default:
-        return '';
-    }
+                  Text((sequence[i] as String).split('__')[1], style: const TextStyle(fontSize: 14)),
+                ]));
+            }
+            return Padding(padding: const EdgeInsets.only(bottom: 6),
+              child: Text(sequence[i] as String, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)));
+          })),
+        ]),
+      ),
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.teal[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.teal, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag numbers:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, runSpacing: 6, children: _dragItems.map((num) => Draggable<String>(
+            data: num,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.teal, borderRadius: BorderRadius.circular(6)), child: Text(num, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(num, style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.teal, width: 1.5)), child: Text(num, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold))),
+          )).toList()),
+        ]),
+      ),
+    ]));
   }
 
   Widget _buildResultsScreen() {
-    final percentage = (_score / _questions.length * 100).round();
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    String message;
-    String emoji;
-    Color color;
-
-    if (percentage == 100) {
-      message = 'Perfect Score!';
-      emoji = '🏆';
-      color = Colors.amber;
-    } else if (percentage >= 80) {
-      message = 'Great Job!';
-      emoji = '🎉';
-      color = Colors.green;
-    } else if (percentage >= 60) {
-      message = 'Good Try!';
-      emoji = '👍';
-      color = Colors.blue;
-    } else {
-      message = 'Keep Practicing!';
-      emoji = '💪';
-      color = Colors.orange;
-    }
+    final pct = (_score / _questions.length * 100).round();
+    final sw = MediaQuery.of(context).size.width;
+    String msg; String emoji; Color color;
+    if (pct == 100) { msg = 'Perfect Score!'; emoji = '🏆'; color = Colors.amber; }
+    else if (pct >= 80) { msg = 'Great Job!'; emoji = '🎉'; color = Colors.green; }
+    else if (pct >= 60) { msg = 'Good Try!'; emoji = '👍'; color = Colors.blue; }
+    else { msg = 'Keep Practicing!'; emoji = '💪'; color = Colors.orange; }
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Exercise Complete'),
-        centerTitle: true,
-        elevation: 0,
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)),
+        title: const Text('Exercise Complete'), centerTitle: true, elevation: 0,
       ),
-      body: Center(
-        child: Padding(
+      body: Center(child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Text(emoji, style: const TextStyle(fontSize: 70)),
+        const SizedBox(height: 15),
+        Text(msg, style: TextStyle(fontSize: sw > 600 ? 30 : 26, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 25),
+        Container(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                emoji,
-                style: const TextStyle(fontSize: 70),
-              ),
-              const SizedBox(height: 15),
-              Text(
-                message,
-                style: TextStyle(
-                  fontSize: screenWidth > 600 ? 30 : 26,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 25),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: color, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Your Score',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$_score/${_questions.length}',
-                      style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$percentage%',
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: _restartExercise,
-                      child: const Text('Try Again'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Back to Lessons'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: color, width: 2)),
+          child: Column(children: [
+            const Text('Your Score', style: TextStyle(fontSize: 16)),
+            const SizedBox(height: 8),
+            Text('$_score/${_questions.length}', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('$pct%', style: const TextStyle(fontSize: 24)),
+          ]),
         ),
-      ),
+        const SizedBox(height: 30),
+        Row(children: [
+          Expanded(child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white, foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            onPressed: _restartExercise, child: const Text('Try Again'),
+          )),
+          const SizedBox(width: 10),
+          Expanded(child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            onPressed: () => Navigator.pop(context), child: const Text('Back to Lessons'),
+          )),
+        ]),
+      ]))),
     );
   }
 }
@@ -19628,191 +16722,105 @@ class _FractionExerciseScreenState extends State<FractionExerciseScreen> {
   bool _exerciseCompleted = false;
   List<dynamic> _userAnswers = List.filled(15, null);
   List<bool> _answeredQuestions = List.filled(15, false);
-  
-  // For drag and drop
+
   List<String> _dragItems = [];
-  List<String> _dragTargets = [];
-  
-  // For matching type
   Map<int, Map<int, int>> _matchingSelections = {};
-  
-  // For drag drop match
   Map<int, Map<int, String>> _matchFilledBlanks = {};
-  
-  // For drag drop sequence
   Map<int, Map<int, String>> _sequenceFilledBlanks = {};
-  
-  // Track if drag items are initialized
   bool _dragItemsInitialized = false;
 
   final List<Map<String, dynamic>> _questions = [
-    // ===== IDENTIFY FRACTIONS (5 items) - ALL USING SQUARE =====
-    // 1. Identify fraction from square - 1/2
     {
-      'id': 1,
-      'type': 'multiple_choice',
-      'category': 'identify',
+      'id': 1, 'type': 'multiple_choice', 'category': 'identify',
       'question': 'What fraction of the square is shaded?',
-      'shape': 'square',
-      'shadedParts': 1,
-      'totalParts': 2,
-      'fraction': '1/2',
-      'correctAnswer': 0,
-      'options': ['1/2', '1/4', '3/4', '1/3'],
+      'shape': 'square', 'shadedParts': 1, 'totalParts': 2, 'fraction': '1/2',
+      'correctAnswer': 0, 'options': ['1/2', '1/4', '3/4', '1/3'],
       'explanation': '1 out of 2 equal parts is shaded = 1/2',
     },
-    
-    // 2. Identify fraction from square - 1/4
     {
-      'id': 2,
-      'type': 'multiple_choice',
-      'category': 'identify',
+      'id': 2, 'type': 'multiple_choice', 'category': 'identify',
       'question': 'What fraction of the square is shaded?',
-      'shape': 'square',
-      'shadedParts': 1,
-      'totalParts': 4,
-      'fraction': '1/4',
-      'correctAnswer': 1,
-      'options': ['1/2', '1/4', '3/4', '1/3'],
+      'shape': 'square', 'shadedParts': 1, 'totalParts': 4, 'fraction': '1/4',
+      'correctAnswer': 1, 'options': ['1/2', '1/4', '3/4', '1/3'],
       'explanation': '1 out of 4 equal parts is shaded = 1/4',
     },
-    
-    // 3. Identify fraction from square - 3/4
     {
-      'id': 3,
-      'type': 'multiple_choice',
-      'category': 'identify',
+      'id': 3, 'type': 'multiple_choice', 'category': 'identify',
       'question': 'What fraction of the square is shaded?',
-      'shape': 'square',
-      'shadedParts': 3,
-      'totalParts': 4,
-      'fraction': '3/4',
-      'correctAnswer': 2,
-      'options': ['1/2', '1/4', '3/4', '1/3'],
+      'shape': 'square', 'shadedParts': 3, 'totalParts': 4, 'fraction': '3/4',
+      'correctAnswer': 2, 'options': ['1/2', '1/4', '3/4', '1/3'],
       'explanation': '3 out of 4 equal parts are shaded = 3/4',
     },
-    
-    // 4. Identify fraction from square - 1/3 (using rectangle divided into 3)
     {
-      'id': 4,
-      'type': 'multiple_choice',
-      'category': 'identify',
+      'id': 4, 'type': 'multiple_choice', 'category': 'identify',
       'question': 'What fraction of the rectangle is shaded?',
-      'shape': 'rectangle',
-      'shadedParts': 1,
-      'totalParts': 3,
-      'fraction': '1/3',
-      'correctAnswer': 3,
-      'options': ['1/2', '1/4', '3/4', '1/3'],
+      'shape': 'rectangle', 'shadedParts': 1, 'totalParts': 3, 'fraction': '1/3',
+      'correctAnswer': 3, 'options': ['1/2', '1/4', '3/4', '1/3'],
       'explanation': '1 out of 3 equal parts is shaded = 1/3',
     },
-    
-    // 5. Identify fraction from square - 2/3
     {
-      'id': 5,
-      'type': 'multiple_choice',
-      'category': 'identify',
+      'id': 5, 'type': 'multiple_choice', 'category': 'identify',
       'question': 'What fraction of the rectangle is shaded?',
-      'shape': 'rectangle',
-      'shadedParts': 2,
-      'totalParts': 3,
-      'fraction': '2/3',
-      'correctAnswer': 2, // 2/3 is the third option in the list
-      'options': ['1/2', '1/4', '2/3', '3/4'],
+      'shape': 'rectangle', 'shadedParts': 2, 'totalParts': 3, 'fraction': '2/3',
+      'correctAnswer': 2, 'options': ['1/2', '1/4', '2/3', '3/4'],
       'explanation': '2 out of 3 equal parts are shaded = 2/3',
     },
-
-    // ===== DESCRIBING FRACTIONS (3 items) =====
     {
-      'id': 6,
-      'type': 'multiple_choice',
-      'category': 'describe',
+      'id': 6, 'type': 'multiple_choice', 'category': 'describe',
       'question': 'How do you describe 1/2 of a pizza?',
-      'correctAnswer': 2,
-      'options': ['One quarter', 'Three quarters', 'One half', 'Whole'],
+      'correctAnswer': 2, 'options': ['One quarter', 'Three quarters', 'One half', 'Whole'],
       'explanation': '1/2 means one half or one out of two equal parts',
     },
-    
     {
-      'id': 7,
-      'type': 'matching',
-      'category': 'describe',
+      'id': 7, 'type': 'matching', 'category': 'describe',
       'question': 'Match each fraction with its description:',
       'leftItems': ['1/4', '1/2', '3/4', '1/1'],
       'rightItems': ['One quarter', 'One half', 'Three quarters', 'Whole'],
       'correctMatches': [0, 1, 2, 3],
-      'explanation': '1/4 = one quarter, 1/2 = one half, 3/4 = three quarters, 1/1 = whole',
+      'explanation': '1/4=one quarter, 1/2=one half, 3/4=three quarters, 1/1=whole',
     },
-    
     {
-      'id': 8,
-      'type': 'multiple_choice',
-      'category': 'describe',
+      'id': 8, 'type': 'multiple_choice', 'category': 'describe',
       'question': 'If you shade 3 out of 4 equal parts, what fraction is shaded?',
-      'correctAnswer': 2,
-      'options': ['1/4', '1/2', '3/4', '4/4'],
+      'correctAnswer': 2, 'options': ['1/4', '1/2', '3/4', '4/4'],
       'explanation': '3 out of 4 equal parts = 3/4',
     },
-
-    // ===== READING FRACTIONS (2 items) =====
     {
-      'id': 9,
-      'type': 'multiple_choice',
-      'category': 'read',
+      'id': 9, 'type': 'multiple_choice', 'category': 'read',
       'question': 'How do you read the fraction 3/4?',
-      'correctAnswer': 1,
-      'options': ['Three-thirds', 'Three-fourths', 'Four-thirds', 'One-fourth'],
+      'correctAnswer': 1, 'options': ['Three-thirds', 'Three-fourths', 'Four-thirds', 'One-fourth'],
       'explanation': '3/4 is read as three-fourths or three quarters',
     },
-    
     {
-      'id': 10,
-      'type': 'drag_drop_match',
-      'category': 'read',
+      'id': 10, 'type': 'drag_drop_match', 'category': 'read',
       'question': 'Match each fraction with how it is read:',
       'leftItems': ['1/2', '1/4', '2/3', '3/4'],
       'rightItems': ['one-half', 'one-fourth', 'two-thirds', 'three-fourths'],
       'correctMatches': [0, 1, 2, 3],
-      'explanation': '1/2 = one-half, 1/4 = one-fourth, 2/3 = two-thirds, 3/4 = three-fourths',
+      'explanation': '1/2=one-half, 1/4=one-fourth, 2/3=two-thirds, 3/4=three-fourths',
     },
-
-    // ===== COMPARING FRACTIONS (3 items) =====
     {
-      'id': 11,
-      'type': 'multiple_choice',
-      'category': 'compare',
+      'id': 11, 'type': 'multiple_choice', 'category': 'compare',
       'question': 'Which is greater, 1/2 or 1/4?',
-      'correctAnswer': 0,
-      'options': ['1/2', '1/4', 'They are equal', 'Cannot tell'],
+      'correctAnswer': 0, 'options': ['1/2', '1/4', 'They are equal', 'Cannot tell'],
       'explanation': '1/2 = 0.5, 1/4 = 0.25, so 1/2 is greater',
     },
-    
     {
-      'id': 12,
-      'type': 'drag_drop_match',
-      'category': 'compare',
+      'id': 12, 'type': 'drag_drop_match', 'category': 'compare',
       'question': 'Drag the correct symbol to compare each pair:',
       'leftItems': ['1/2 ? 1/4', '3/4 ? 1/2', '1/4 ? 1/4', '1/4 ? 1/2'],
       'rightItems': ['>', '>', '=', '<'],
       'correctMatches': [0, 1, 2, 3],
-      'explanation': '1/2 > 1/4, 3/4 > 1/2, 1/4 = 1/4, 1/4 < 1/2',
+      'explanation': '1/2>1/4, 3/4>1/2, 1/4=1/4, 1/4<1/2',
     },
-    
     {
-      'id': 13,
-      'type': 'multiple_choice',
-      'category': 'compare',
+      'id': 13, 'type': 'multiple_choice', 'category': 'compare',
       'question': 'Ana ate 1/2 of a pizza. Ben ate 1/4 of the same pizza. Who ate more?',
-      'correctAnswer': 0,
-      'options': ['Ana', 'Ben', 'They ate the same', 'Cannot tell'],
+      'correctAnswer': 0, 'options': ['Ana', 'Ben', 'They ate the same', 'Cannot tell'],
       'explanation': '1/2 is greater than 1/4, so Ana ate more',
     },
-
-    // ===== ORDERING FRACTIONS (2 items) =====
     {
-      'id': 14,
-      'type': 'drag_drop_sequence',
-      'category': 'order',
+      'id': 14, 'type': 'drag_drop_sequence', 'category': 'order',
       'question': 'Arrange the fractions from SMALLEST to LARGEST:',
       'sequence': ['___', '___', '___', '___'],
       'availableNumbers': ['1/4', '1/3', '1/2', '3/4'],
@@ -19820,1342 +16828,396 @@ class _FractionExerciseScreenState extends State<FractionExerciseScreen> {
       'blankPositions': [0, 1, 2, 3],
       'explanation': 'Smallest to largest: 1/4 (0.25), 1/3 (0.33), 1/2 (0.5), 3/4 (0.75)',
     },
-    
     {
-      'id': 15,
-      'type': 'multiple_choice',
-      'category': 'order',
+      'id': 15, 'type': 'multiple_choice', 'category': 'order',
       'question': 'Which is in increasing order (smallest to largest)?',
       'correctAnswer': 1,
-      'options': [
-        '1/2, 1/4, 3/4',
-        '1/4, 1/2, 3/4',
-        '3/4, 1/2, 1/4',
-        '1/2, 3/4, 1/4'
-      ],
+      'options': ['1/2, 1/4, 3/4', '1/4, 1/2, 3/4', '3/4, 1/2, 1/4', '1/2, 3/4, 1/4'],
       'explanation': 'Increasing order: 1/4 (0.25), 1/2 (0.5), 3/4 (0.75)',
     },
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _initQuestion();
-  }
+  void initState() { super.initState(); _initQuestion(); }
 
   void _initQuestion() {
     _dragItemsInitialized = false;
-    _initDragItems();
-    _initMatchingSelections();
-    _initMatchBlanks();
-    _initSequenceBlanks();
-  }
-
-  void _initDragItems() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_match') {
-      if (question.containsKey('rightItems')) {
-        _dragItems = List<String>.from(question['rightItems'] as List);
-        _dragItems.shuffle();
-        _dragTargets = List.filled((question['leftItems'] as List).length, '');
-      }
-    } else if (question['type'] == 'drag_drop_sequence') {
-      _dragItems = List<String>.from(question['availableNumbers'] as List);
+    final q = _questions[_currentQuestion];
+    if (q['type'] == 'drag_drop_match') {
+      _dragItems = List<String>.from(q['rightItems'] as List);
       _dragItems.shuffle();
-      _dragTargets = List.filled((question['correctAnswer'] as List).length, '');
+      _matchFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'drag_drop_sequence') {
+      _dragItems = List<String>.from(q['availableNumbers'] as List);
+      _dragItems.shuffle();
+      _sequenceFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'matching') {
+      _matchingSelections[_currentQuestion] = {};
     }
     _dragItemsInitialized = true;
   }
 
-  void _initMatchingSelections() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'matching') {
-      _matchingSelections[_currentQuestion] = {};
-    }
+  void _updateMatchingSelection(int li, int ri) {
+    setState(() { _matchingSelections[_currentQuestion] ??= {}; _matchingSelections[_currentQuestion]![li] = ri; });
   }
 
-  void _initMatchBlanks() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_match') {
-      _matchFilledBlanks[_currentQuestion] = {};
-    }
+  void _updateMatchBlank(int i, String v) {
+    setState(() { _matchFilledBlanks[_currentQuestion] ??= {}; _matchFilledBlanks[_currentQuestion]![i] = v; _dragItems.remove(v); });
   }
 
-  void _initSequenceBlanks() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_sequence') {
-      _sequenceFilledBlanks[_currentQuestion] = {};
-    }
+  void _updateSequenceBlank(int pos, String v) {
+    setState(() { _sequenceFilledBlanks[_currentQuestion] ??= {}; _sequenceFilledBlanks[_currentQuestion]![pos] = v; _dragItems.remove(v); });
   }
 
-  void _updateMatchingSelection(int leftIndex, int rightIndex) {
-    setState(() {
-      if (!_matchingSelections.containsKey(_currentQuestion)) {
-        _matchingSelections[_currentQuestion] = {};
-      }
-      _matchingSelections[_currentQuestion]![leftIndex] = rightIndex;
-    });
-  }
-
-  void _updateMatchBlank(int index, String value) {
-    setState(() {
-      if (!_matchFilledBlanks.containsKey(_currentQuestion)) {
-        _matchFilledBlanks[_currentQuestion] = {};
-      }
-      _matchFilledBlanks[_currentQuestion]![index] = value;
-      _dragItems.remove(value);
-    });
-  }
-
-  void _updateSequenceBlank(int position, String number) {
-    setState(() {
-      if (!_sequenceFilledBlanks.containsKey(_currentQuestion)) {
-        _sequenceFilledBlanks[_currentQuestion] = {};
-      }
-      _sequenceFilledBlanks[_currentQuestion]![position] = number;
-      _dragItems.remove(number);
-    });
-  }
-
-  bool _isMatchingComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'matching') return true;
-    
-    final leftItems = question['leftItems'] as List;
-    final selections = _matchingSelections[questionIndex];
-    
-    if (selections == null) return false;
-    return selections.length == leftItems.length;
-  }
-
-  bool _isMatchComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'drag_drop_match') return true;
-    
-    final leftItems = question['leftItems'] as List;
-    final matches = _matchFilledBlanks[questionIndex];
-    
-    if (matches == null) return false;
-    return matches.length == leftItems.length;
-  }
-
-  bool _isSequenceComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'drag_drop_sequence') return true;
-    
-    final correctAnswer = question['correctAnswer'] as List;
-    final blanks = _sequenceFilledBlanks[questionIndex];
-    
-    if (blanks == null) return false;
-    return blanks.length == correctAnswer.length;
-  }
+  bool _isMatchComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'drag_drop_match') return true; final m = _matchFilledBlanks[qi]; return m != null && m.length == (q['leftItems'] as List).length; }
+  bool _isSeqComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'drag_drop_sequence') return true; final b = _sequenceFilledBlanks[qi]; return b != null && b.length == (q['correctAnswer'] as List).length; }
+  bool _isMatchingComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'matching') return true; final m = _matchingSelections[qi]; return m != null && m.length == (q['leftItems'] as List).length; }
 
   void _answerQuestion(dynamic answer) {
-    if (!_answeredQuestions[_currentQuestion]) {
-      setState(() {
-        _answeredQuestions[_currentQuestion] = true;
-        _userAnswers[_currentQuestion] = answer;
-
-        final question = _questions[_currentQuestion];
-        bool isCorrect = false;
-
-        if (question['type'] == 'multiple_choice') {
-          isCorrect = answer == question['correctAnswer'];
-        } else if (question['type'] == 'matching') {
-          isCorrect = _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
-        } else if (question['type'] == 'drag_drop_match') {
-          isCorrect = _checkDragDropMatch(answer as List<String>, question['correctMatches']);
-        } else if (question['type'] == 'drag_drop_sequence') {
-          isCorrect = _checkDragDropSequence(answer as List<String>, question['correctAnswer']);
-        }
-
-        if (isCorrect) {
-          _score++;
-        }
-        
-        if (_answeredQuestions.every((answered) => answered)) {
-          _exerciseCompleted = true;
-          _recordExerciseResults();
-        }
-      });
-    }
+    if (_answeredQuestions[_currentQuestion]) return;
+    setState(() {
+      _answeredQuestions[_currentQuestion] = true;
+      _userAnswers[_currentQuestion] = answer;
+      final q = _questions[_currentQuestion];
+      bool isCorrect = false;
+      if (q['type'] == 'multiple_choice') isCorrect = answer == q['correctAnswer'];
+      else if (q['type'] == 'matching') isCorrect = _checkMatching(answer as Map<int, int>, q['correctMatches']);
+      else if (q['type'] == 'drag_drop_match') isCorrect = _checkDDMatch(answer as List<String>, q['correctMatches'], q['rightItems']);
+      else if (q['type'] == 'drag_drop_sequence') isCorrect = _checkSeq(answer as List<String>, q['correctAnswer']);
+      if (isCorrect) _score++;
+      if (_answeredQuestions.every((a) => a)) { _exerciseCompleted = true; _recordResults(); }
+    });
   }
 
-  bool _checkMatchingAnswer(Map<int, int> userMatches, List<int> correctMatches) {
+  bool _checkMatching(Map<int, int> user, List<int> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
+    return true;
+  }
+
+  // ✅ FIXED
+  bool _checkDDMatch(List<String> userMatches, List<int> correctMatches, List rightItems) {
     if (userMatches.length != correctMatches.length) return false;
-    
     for (int i = 0; i < correctMatches.length; i++) {
-      if (userMatches[i] != correctMatches[i]) return false;
+      final expected = rightItems[correctMatches[i]] as String;
+      if (userMatches[i] != expected) return false;
     }
     return true;
   }
 
-  bool _checkDragDropMatch(List<String> userMatches, List<int> correctMatches) {
-    if (userMatches.length != correctMatches.length) return false;
+  bool _checkSeq(List<String> user, List<String> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
     return true;
   }
 
-  bool _checkDragDropSequence(List<String> userAnswer, List<String> correctAnswer) {
-    if (userAnswer.length != correctAnswer.length) return false;
-    
-    for (int i = 0; i < correctAnswer.length; i++) {
-      if (userAnswer[i] != correctAnswer[i]) return false;
-    }
-    return true;
+  void _recordResults() {
+    final pct = (_score / _questions.length * 100).toInt();
+    progressManager.recordExerciseScore(widget.lessonName, widget.language, 0,
+      'Fraction Comprehensive Exercise', _score, _questions.length, _score, pct.toDouble());
   }
 
-  void _recordExerciseResults() {
-    final percentage = (_score / _questions.length * 100).toInt();
-    
-    progressManager.recordExerciseScore(
-      widget.lessonName,
-      widget.language,
-      0,
-      'Fraction Comprehensive Exercise',
-      _score,
-      _questions.length,
-      _score,
-      percentage.toDouble(),
-    );
-  }
-
-  void _nextQuestion() {
-    if (_currentQuestion < _questions.length - 1) {
-      setState(() {
-        _currentQuestion++;
-        _initQuestion();
-      });
-    }
-  }
-
-  void _previousQuestion() {
-    if (_currentQuestion > 0) {
-      setState(() {
-        _currentQuestion--;
-        _initQuestion();
-      });
-    }
-  }
+  void _nextQuestion() { if (_currentQuestion < _questions.length - 1) setState(() { _currentQuestion++; _initQuestion(); }); }
+  void _previousQuestion() { if (_currentQuestion > 0) setState(() { _currentQuestion--; _initQuestion(); }); }
 
   void _restartExercise() {
     setState(() {
-      _currentQuestion = 0;
-      _score = 0;
-      _exerciseCompleted = false;
+      _currentQuestion = 0; _score = 0; _exerciseCompleted = false;
       _userAnswers = List.filled(_questions.length, null);
       _answeredQuestions = List.filled(_questions.length, false);
-      _matchingSelections.clear();
-      _matchFilledBlanks.clear();
-      _sequenceFilledBlanks.clear();
-      _initQuestion();
+      _matchingSelections.clear(); _matchFilledBlanks.clear();
+      _sequenceFilledBlanks.clear(); _initQuestion();
     });
   }
 
-  void _submitInteractiveAnswer(Map<String, dynamic> question) {
-    dynamic answer;
-    
-    if (question['type'] == 'matching') {
-      final matches = _matchingSelections[_currentQuestion];
-      if (matches == null || matches.length != (question['leftItems'] as List).length) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all matches first'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      answer = matches;
-    } 
-    else if (question['type'] == 'drag_drop_match') {
-      if (!_isMatchComplete(_currentQuestion)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all matches'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      final matches = _matchFilledBlanks[_currentQuestion]!;
-      final List<String> answerList = [];
-      for (int i = 0; i < (question['leftItems'] as List).length; i++) {
-        answerList.add(matches[i] ?? '');
-      }
-      answer = answerList;
+  void _submitInteractiveAnswer(Map<String, dynamic> q) {
+    if (q['type'] == 'matching') {
+      if (!_isMatchingComplete(_currentQuestion)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all matches first'), duration: Duration(seconds: 2))); return; }
+      _answerQuestion(Map<int, int>.from(_matchingSelections[_currentQuestion]!));
+    } else if (q['type'] == 'drag_drop_match') {
+      if (!_isMatchComplete(_currentQuestion)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all matches'), duration: Duration(seconds: 2))); return; }
+      final m = _matchFilledBlanks[_currentQuestion]!;
+      final List<String> ans = [];
+      for (int i = 0; i < (q['leftItems'] as List).length; i++) ans.add(m[i] ?? '');
+      _answerQuestion(ans);
+    } else if (q['type'] == 'drag_drop_sequence') {
+      if (!_isSeqComplete(_currentQuestion)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all blanks'), duration: Duration(seconds: 2))); return; }
+      final b = _sequenceFilledBlanks[_currentQuestion]!;
+      final bp = q['blankPositions'] as List;
+      final List<String> ans = [];
+      for (int i = 0; i < bp.length; i++) ans.add(b[bp[i]] ?? '');
+      _answerQuestion(ans);
     }
-    else if (question['type'] == 'drag_drop_sequence') {
-      if (!_isSequenceComplete(_currentQuestion)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all blanks'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      final blanks = _sequenceFilledBlanks[_currentQuestion]!;
-      final List<String> answerList = [];
-      final blankPositions = question['blankPositions'] as List;
-      for (int i = 0; i < blankPositions.length; i++) {
-        answerList.add(blanks[blankPositions[i]] ?? '');
-      }
-      answer = answerList;
-    }
-    
-    _answerQuestion(answer);
   }
 
-  bool _isAnswerCorrect(Map<String, dynamic> question) {
-    final answer = _userAnswers[_currentQuestion];
-    if (answer == null) return false;
-    
-    if (question['type'] == 'multiple_choice') {
-      return answer == question['correctAnswer'];
-    } else if (question['type'] == 'matching') {
-      return _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
-    }
+  bool _isAnswerCorrect(Map<String, dynamic> q) {
+    final a = _userAnswers[_currentQuestion]; if (a == null) return false;
+    if (q['type'] == 'multiple_choice') return a == q['correctAnswer'];
+    if (q['type'] == 'matching') return _checkMatching(a as Map<int, int>, q['correctMatches']);
     return true;
   }
 
-  String _getCategoryName(String category) {
-    switch (category) {
-      case 'identify':
-        return 'IDENTIFY FRACTIONS';
-      case 'describe':
-        return 'DESCRIBING FRACTIONS';
-      case 'read':
-        return 'READING FRACTIONS';
-      case 'compare':
-        return 'COMPARING FRACTIONS';
-      case 'order':
-        return 'ORDERING FRACTIONS';
-      default:
-        return 'FRACTIONS';
+  String _getCategoryName(String c) {
+    switch (c) {
+      case 'identify': return 'IDENTIFY FRACTIONS';
+      case 'describe': return 'DESCRIBING FRACTIONS';
+      case 'read': return 'READING FRACTIONS';
+      case 'compare': return 'COMPARING FRACTIONS';
+      case 'order': return 'ORDERING FRACTIONS';
+      default: return 'FRACTIONS';
     }
   }
 
-  Color _getCategoryColor(String category) {
-    switch (category) {
-      case 'identify':
-        return Colors.purple;
-      case 'describe':
-        return Colors.blue;
-      case 'read':
-        return Colors.green;
-      case 'compare':
-        return Colors.orange;
-      case 'order':
-        return Colors.teal;
-      default:
-        return Colors.grey;
+  Color _getCategoryColor(String c) {
+    switch (c) {
+      case 'identify': return Colors.purple;
+      case 'describe': return Colors.blue;
+      case 'read': return Colors.green;
+      case 'compare': return Colors.orange;
+      case 'order': return Colors.teal;
+      default: return Colors.grey;
     }
   }
 
-  Color _getTypeColor(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return Colors.blue;
-      case 'matching':
-        return Colors.purple;
-      case 'drag_drop_match':
-      case 'drag_drop_sequence':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
+  Color _getTypeColor(String t) {
+    if (t == 'multiple_choice') return Colors.blue;
+    if (t == 'matching') return Colors.purple;
+    return Colors.orange;
   }
 
-  String _getTypeName(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return 'MULTIPLE CHOICE';
-      case 'matching':
-        return 'MATCHING TYPE';
-      case 'drag_drop_match':
-        return 'DRAG & DROP - MATCH';
-      case 'drag_drop_sequence':
-        return 'DRAG & DROP - ORDER';
-      default:
-        return '';
-    }
+  String _getTypeName(String t) {
+    if (t == 'multiple_choice') return 'MULTIPLE CHOICE';
+    if (t == 'matching') return 'MATCHING TYPE';
+    if (t == 'drag_drop_match') return 'DRAG & DROP - MATCH';
+    if (t == 'drag_drop_sequence') return 'DRAG & DROP - ORDER';
+    return '';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_exerciseCompleted) {
-      return _buildResultsScreen();
-    }
-
-    final currentQuestion = _questions[_currentQuestion];
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+    if (_exerciseCompleted) return _buildResultsScreen();
+    final q = _questions[_currentQuestion];
+    final sw = MediaQuery.of(context).size.width;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Fraction Exercise',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
+      appBar: AppBar(backgroundColor: Colors.white,
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)),
+        title: const Text('Fraction Exercise', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)),
+        centerTitle: true, elevation: 0),
+      body: SafeArea(child: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: sw * 0.04, vertical: 16),
+        child: Column(children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: _getCategoryColor(q['category']).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15), border: Border.all(color: _getCategoryColor(q['category']), width: 1)),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Question ${_currentQuestion + 1}/${_questions.length}',
+                  style: TextStyle(fontSize: sw * 0.045, fontWeight: FontWeight.bold, color: _getCategoryColor(q['category']))),
+                Text(_getCategoryName(q['category']),
+                  style: TextStyle(fontSize: sw * 0.035, color: _getCategoryColor(q['category']).withOpacity(0.8))),
+              ]),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber, width: 1)),
+                child: Row(children: [const Icon(Icons.star, color: Colors.amber, size: 16), const SizedBox(width: 4), Text('$_score', style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold, color: Colors.amber[800]))])),
+            ]),
           ),
-        ),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: screenWidth * 0.04,
-            vertical: screenHeight * 0.02,
-          ),
-          child: Column(
-            children: [
-              // Progress header
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _getCategoryColor(currentQuestion['category']).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: _getCategoryColor(currentQuestion['category']), width: 1),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Question ${_currentQuestion + 1}/${_questions.length}',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.045,
-                            fontWeight: FontWeight.bold,
-                            color: _getCategoryColor(currentQuestion['category']),
-                          ),
-                        ),
-                        Text(
-                          _getCategoryName(currentQuestion['category']),
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            color: _getCategoryColor(currentQuestion['category']).withOpacity(0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.amber, width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.star, color: Colors.amber, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$_score',
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.04,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Type badge
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getTypeColor(currentQuestion['type']),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _getTypeName(currentQuestion['type']),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // Question card
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(screenWidth * 0.05),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.black, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color.fromRGBO(0, 0, 0, 0.15),
-                      blurRadius: 8,
-                      offset: const Offset(4, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Question text
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.02),
-                      child: Text(
-                        currentQuestion['question'] as String,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.045,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-
-                    const SizedBox(height: 15),
-
-                    // ============ FIXED: Visual representation for fraction questions (SQUARES ONLY) ============
-                    if (currentQuestion['category'] == 'identify' && currentQuestion.containsKey('shape'))
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        child: Center(
-                          child: _buildFractionSquare(
-                            currentQuestion['shape'] as String,
-                            currentQuestion['shadedParts'] as int,
-                            currentQuestion['totalParts'] as int,
-                            screenWidth * 0.3,
-                          ),
-                        ),
-                      ),
-
-                    const SizedBox(height: 15),
-
-                    // Question content based on type
-                    if (currentQuestion['type'] == 'multiple_choice')
-                      _buildMultipleChoice(currentQuestion, screenWidth)
-                    else if (currentQuestion['type'] == 'matching')
-                      _buildMatchingType(currentQuestion, screenWidth)
-                    else if (currentQuestion['type'] == 'drag_drop_match' && _dragItemsInitialized)
-                      _buildDragDropMatch(currentQuestion, screenWidth)
-                    else if (currentQuestion['type'] == 'drag_drop_sequence' && _dragItemsInitialized)
-                      _buildDragDropSequence(currentQuestion, screenWidth),
-
-                    const SizedBox(height: 15),
-
-                    // Submit button for interactive types
-                    if (!_answeredQuestions[_currentQuestion] && 
-                        (currentQuestion['type'] == 'matching' || 
-                         currentQuestion['type'] == 'drag_drop_match' ||
-                         currentQuestion['type'] == 'drag_drop_sequence'))
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(180, 40),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                        ),
-                        onPressed: () => _submitInteractiveAnswer(currentQuestion),
-                        child: const Text('Submit Answer', style: TextStyle(fontSize: 14)),
-                      ),
-
-                    const SizedBox(height: 15),
-
-                    // Explanation
-                    if (_answeredQuestions[_currentQuestion])
-                      Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.all(screenWidth * 0.03),
-                        decoration: BoxDecoration(
-                          color: _isAnswerCorrect(currentQuestion) ? Colors.green[50] : Colors.red[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _isAnswerCorrect(currentQuestion) ? Colors.green : Colors.red,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          _isAnswerCorrect(currentQuestion)
-                              ? '✓ Correct! ${currentQuestion['explanation'] as String}'
-                              : '✗ ${currentQuestion['explanation'] as String}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: screenWidth > 600 ? 15 : 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
+          const SizedBox(height: 12),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(color: _getTypeColor(q['type']), borderRadius: BorderRadius.circular(20)),
+            child: Text(_getTypeName(q['type']), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity, padding: EdgeInsets.all(sw * 0.05),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.black, width: 2),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8, offset: const Offset(4, 4))]),
+            child: Column(children: [
+              Text(q['question'] as String, textAlign: TextAlign.center,
+                style: TextStyle(fontSize: sw * 0.045, fontWeight: FontWeight.bold), maxLines: 3, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 15),
-
-              // Navigation buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _currentQuestion > 0 ? _previousQuestion : null,
-                      child: const Text('Previous', style: TextStyle(fontSize: 14)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null,
-                      child: Text(
-                        _currentQuestion == _questions.length - 1 ? 'Finish' : 'Next',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              if (q['category'] == 'identify' && q.containsKey('shape'))
+                Container(padding: const EdgeInsets.all(12),
+                  child: Center(child: _buildFractionShape(q['shape'] as String, q['shadedParts'] as int, q['totalParts'] as int, sw * 0.3))),
+              const SizedBox(height: 15),
+              if (q['type'] == 'multiple_choice') _buildMC(q, sw)
+              else if (q['type'] == 'matching') _buildMatching(q, sw)
+              else if (q['type'] == 'drag_drop_match' && _dragItemsInitialized) _buildDDMatch(q, sw)
+              else if (q['type'] == 'drag_drop_sequence' && _dragItemsInitialized) _buildDDSeq(q, sw),
+              const SizedBox(height: 15),
+              if (!_answeredQuestions[_currentQuestion] &&
+                  (q['type'] == 'matching' || q['type'] == 'drag_drop_match' || q['type'] == 'drag_drop_sequence'))
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white,
+                    minimumSize: const Size(180, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
+                  onPressed: () => _submitInteractiveAnswer(q),
+                  child: const Text('Submit Answer', style: TextStyle(fontSize: 14))),
+              const SizedBox(height: 15),
+              if (_answeredQuestions[_currentQuestion])
+                Container(width: double.infinity, padding: EdgeInsets.all(sw * 0.03),
+                  decoration: BoxDecoration(color: _isAnswerCorrect(q) ? Colors.green[50] : Colors.red[50],
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _isAnswerCorrect(q) ? Colors.green : Colors.red, width: 1.5)),
+                  child: Text(_isAnswerCorrect(q) ? '✓ Correct! ${q['explanation']}' : '✗ ${q['explanation']}',
+                    textAlign: TextAlign.center, style: TextStyle(fontSize: sw > 600 ? 15 : 13, fontWeight: FontWeight.w500))),
+            ]),
           ),
-        ),
-      ),
+          const SizedBox(height: 15),
+          Row(children: [
+            Expanded(child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)),
+                padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1),
+              onPressed: _currentQuestion > 0 ? _previousQuestion : null,
+              child: const Text('Previous', style: TextStyle(fontSize: 14)))),
+            const SizedBox(width: 10),
+            Expanded(child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)),
+                padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1),
+              onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null,
+              child: Text(_currentQuestion == _questions.length - 1 ? 'Finish' : 'Next',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)))),
+          ]),
+        ]),
+      )),
     );
   }
 
-  // ============ FIXED: Fraction Square Builder (SQUARES ONLY) ============
-  Widget _buildFractionSquare(String shape, int shadedParts, int totalParts, double size) {
-    // Use rectangle for thirds, square for halves and quarters
+  Widget _buildFractionShape(String shape, int shadedParts, int totalParts, double size) {
     if (totalParts == 3) {
-      // Rectangle divided into 3 vertical parts
-      return Container(
-        width: size * 0.8,
-        height: size,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.purple, width: 3),
-        ),
-        child: CustomPaint(
-          painter: _FixedRectangleThirdsPainter(
-            shadedParts: shadedParts,
-            totalParts: totalParts,
-          ),
-        ),
-      );
-    } else {
-      // Square for halves and quarters
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.purple, width: 3),
-        ),
-        child: CustomPaint(
-          painter: _FixedSquareFractionPainter(
-            shadedParts: shadedParts,
-            totalParts: totalParts,
-          ),
-        ),
-      );
+      return Container(width: size * 0.8, height: size,
+        decoration: BoxDecoration(border: Border.all(color: Colors.purple, width: 3)),
+        child: CustomPaint(painter: _FixedRectangleThirdsPainter(shadedParts: shadedParts, totalParts: totalParts)));
     }
+    return Container(width: size, height: size,
+      decoration: BoxDecoration(border: Border.all(color: Colors.purple, width: 3)),
+      child: CustomPaint(painter: _FixedSquareFractionPainter(shadedParts: shadedParts, totalParts: totalParts)));
   }
 
-  // ===== MULTIPLE CHOICE BUILDER =====
-  Widget _buildMultipleChoice(Map<String, dynamic> question, double screenWidth) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: screenWidth > 600 ? 2.2 : 2.0,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: (question['options'] as List).length,
-      itemBuilder: (context, index) {
+  Widget _buildMC(Map<String, dynamic> q, double sw) {
+    return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: sw > 600 ? 2.2 : 2.0, crossAxisSpacing: 8, mainAxisSpacing: 8),
+      itemCount: (q['options'] as List).length,
+      itemBuilder: (context, i) {
         final isAnswered = _answeredQuestions[_currentQuestion];
-        final isSelected = _userAnswers[_currentQuestion] == index;
-        final isCorrect = index == (question['correctAnswer'] as int);
-
-        Color buttonColor = Colors.white;
-        if (isAnswered) {
-          if (isSelected && isCorrect) {
-            buttonColor = Colors.green;
-          } else if (isSelected && !isCorrect) {
-            buttonColor = Colors.red;
-          } else if (isCorrect) {
-            buttonColor = Colors.green[100]!;
-          }
-        }
-
-        return GestureDetector(
-          onTap: isAnswered ? null : () => _answerQuestion(index),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: buttonColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isSelected ? Colors.black : Colors.grey[300]!,
-                width: isSelected ? 2 : 1,
-              ),
-              boxShadow: [
-                if (!isAnswered)
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
-              ],
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Text(
-                  (question['options'] as List)[index] as String,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: screenWidth > 600 ? 18 : 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+        final isSel = _userAnswers[_currentQuestion] == i;
+        final isCorrect = i == (q['correctAnswer'] as int);
+        Color c = Colors.white;
+        if (isAnswered) { if (isSel && isCorrect) c = Colors.green; else if (isSel) c = Colors.red; else if (isCorrect) c = Colors.green[100]!; }
+        return GestureDetector(onTap: isAnswered ? null : () => _answerQuestion(i),
+          child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(10), border: Border.all(color: isSel ? Colors.black : Colors.grey[300]!, width: isSel ? 2 : 1)),
+            child: Center(child: Padding(padding: const EdgeInsets.all(6),
+              child: Text((q['options'] as List)[i] as String, textAlign: TextAlign.center,
+                style: TextStyle(fontSize: sw > 600 ? 18 : 16, fontWeight: FontWeight.bold))))));
+      });
   }
 
-  // ===== MATCHING TYPE BUILDER =====
-  Widget _buildMatchingType(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    final rightItems = question['rightItems'] as List;
-    
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.purple[200]!, width: 1.5),
-      ),
-      child: Column(
-        children: [
-          // Headers
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.purple[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Fraction',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.purple[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Description',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
+  Widget _buildMatching(Map<String, dynamic> q, double sw) {
+    final left = q['leftItems'] as List; final right = q['rightItems'] as List;
+    return Container(padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.purple[200]!, width: 1.5)),
+      child: Column(children: [
+        Row(children: [
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Fraction', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center))),
+          const SizedBox(width: 8),
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center))),
+        ]),
+        const SizedBox(height: 8),
+        ...List.generate(left.length, (i) => Padding(padding: const EdgeInsets.only(bottom: 6),
+          child: Row(children: [
+            Expanded(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey[300]!)), child: Text(left[i] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)))),
+            const SizedBox(width: 8),
+            Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 6), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.purple[300]!)),
+              child: DropdownButton<int>(value: _matchingSelections[_currentQuestion]?[i], hint: const Text('Select', style: TextStyle(fontSize: 11)), isExpanded: true, underline: const SizedBox(), iconSize: 18,
+                items: List.generate(right.length, (j) => DropdownMenuItem<int>(value: j, child: Text(right[j] as String, style: const TextStyle(fontSize: 11)))),
+                onChanged: _answeredQuestions[_currentQuestion] ? null : (v) => _updateMatchingSelection(i, v!)))),
+          ]))),
+      ]));
+  }
+
+  Widget _buildDDMatch(Map<String, dynamic> q, double sw) {
+    final left = q['leftItems'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange, width: 1.5)),
+        child: Column(children: List.generate(left.length, (i) {
+          final fv = _matchFilledBlanks[_currentQuestion]?[i];
+          return Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [
+            Expanded(flex: 2, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.orange[300]!)), child: Text(left[i] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)))),
+            const SizedBox(width: 8),
+            Expanded(child: DragTarget<String>(
+              builder: (ctx, cd, rd) => Container(height: 40, decoration: BoxDecoration(color: fv == null ? Colors.orange[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.orange : Colors.orange[700]!, width: 1.5)), child: Center(child: Text(fv ?? 'Drop', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: fv == null ? Colors.grey : Colors.black)))),
+              onWillAccept: (d) => _matchFilledBlanks[_currentQuestion]?[i] == null,
+              onAccept: (d) { _updateMatchBlank(i, d); ss(() {}); })),
+          ]));
+        }))),
+      const SizedBox(height: 12),
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag answers:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
           const SizedBox(height: 8),
-          
-          // Matching rows
-          ...List.generate(leftItems.length, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  // Left item
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Text(
-                        leftItems[index] as String,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 8),
-                  
-                  // Right dropdown
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.purple[300]!),
-                      ),
-                      child: DropdownButton<int>(
-                        value: _matchingSelections[_currentQuestion]?[index],
-                        hint: const Text('Select', style: TextStyle(fontSize: 11)),
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconSize: 18,
-                        items: List.generate(rightItems.length, (i) {
-                          return DropdownMenuItem<int>(
-                            value: i,
-                            child: Text(rightItems[i] as String, style: const TextStyle(fontSize: 11)),
-                          );
-                        }),
-                        onChanged: _answeredQuestions[_currentQuestion] 
-                            ? null 
-                            : (value) {
-                                _updateMatchingSelection(index, value!);
-                              },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
+          Wrap(spacing: 6, runSpacing: 6, children: _dragItems.map((item) => Draggable<String>(data: item,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.red, width: 1.5)), child: Text(item, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))))).toList()),
+        ])),
+    ]));
   }
 
-  // ===== DRAG AND DROP MATCH BUILDER =====
-  Widget _buildDragDropMatch(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Left items with drop targets
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.orange, width: 1.5),
-              ),
-              child: Column(
-                children: List.generate(leftItems.length, (index) {
-                  final filledValue = _matchFilledBlanks[_currentQuestion]?[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        // Left item
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.orange[300]!),
-                            ),
-                            child: Text(
-                              leftItems[index] as String,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(width: 8),
-                        
-                        // Drop target for match
-                        Expanded(
-                          child: DragTarget<String>(
-                            builder: (context, candidateData, rejectedData) {
-                              return Container(
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: filledValue == null
-                                      ? Colors.orange[100]
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: filledValue == null
-                                        ? Colors.orange
-                                        : Colors.orange[700]!,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    filledValue ?? 'Drop',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: filledValue == null ? Colors.grey : Colors.black,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                            onWillAccept: (data) {
-                              return _matchFilledBlanks[_currentQuestion]?[index] == null;
-                            },
-                            onAccept: (data) {
-                              _updateMatchBlank(index, data);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Drag items
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag answers:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _dragItems.map((item) {
-                      return Draggable<String>(
-                        data: item,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              item,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.red, width: 1.5),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ===== DRAG AND DROP SEQUENCE BUILDER =====
-  Widget _buildDragDropSequence(Map<String, dynamic> question, double screenWidth) {
-    final sequence = question['sequence'] as List;
-    final blankPositions = question['blankPositions'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Sequence with blanks
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.teal[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.teal, width: 1.5),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(sequence.length, (index) {
-                  if (blankPositions.contains(index)) {
-                    final filledValue = _sequenceFilledBlanks[_currentQuestion]?[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: DragTarget<String>(
-                        builder: (context, candidateData, rejectedData) {
-                          return Container(
-                            width: 50,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: filledValue == null
-                                  ? Colors.teal[100]
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: filledValue == null
-                                    ? Colors.teal
-                                    : Colors.teal[700]!,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                filledValue ?? '?',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                        onWillAccept: (data) {
-                          return _sequenceFilledBlanks[_currentQuestion]?[index] == null;
-                        },
-                        onAccept: (data) {
-                          _updateSequenceBlank(index, data);
-                        },
-                      ),
-                    );
-                  } else {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                        child: Text(
-                          sequence[index] as String,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                }),
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Drag items
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.amber, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag fractions:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _dragItems.map((item) {
-                      return Draggable<String>(
-                        data: item,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.amber,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              item,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.amber, width: 1.5),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+  Widget _buildDDSeq(Map<String, dynamic> q, double sw) {
+    final sequence = q['sequence'] as List; final bp = q['blankPositions'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.teal[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.teal, width: 1.5)),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(sequence.length, (i) {
+          if (bp.contains(i)) {
+            final fv = _sequenceFilledBlanks[_currentQuestion]?[i];
+            return Padding(padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: DragTarget<String>(
+                builder: (ctx, cd, rd) => Container(width: 50, height: 40, decoration: BoxDecoration(color: fv == null ? Colors.teal[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.teal : Colors.teal[700]!, width: 1.5)), child: Center(child: Text(fv ?? '?', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)))),
+                onWillAccept: (d) => _sequenceFilledBlanks[_currentQuestion]?[i] == null,
+                onAccept: (d) { _updateSequenceBlank(i, d); ss(() {}); }));
+          }
+          return Padding(padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Text(sequence[i] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))));
+        }))),
+      const SizedBox(height: 12),
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.amber[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag fractions:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, runSpacing: 6, children: _dragItems.map((item) => Draggable<String>(data: item,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.amber, width: 1.5)), child: Text(item, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))))).toList()),
+        ])),
+    ]));
   }
 
   Widget _buildResultsScreen() {
-    final percentage = (_score / _questions.length * 100).round();
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    String message;
-    String emoji;
-    Color color;
-
-    if (percentage == 100) {
-      message = 'Perfect Score!';
-      emoji = '🏆';
-      color = Colors.amber;
-    } else if (percentage >= 80) {
-      message = 'Great Job!';
-      emoji = '🎉';
-      color = Colors.green;
-    } else if (percentage >= 60) {
-      message = 'Good Try!';
-      emoji = '👍';
-      color = Colors.blue;
-    } else {
-      message = 'Keep Practicing!';
-      emoji = '💪';
-      color = Colors.orange;
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Exercise Complete'),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                emoji,
-                style: const TextStyle(fontSize: 70),
-              ),
-              const SizedBox(height: 15),
-              Text(
-                message,
-                style: TextStyle(
-                  fontSize: screenWidth > 600 ? 30 : 26,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 25),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: color, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Your Score',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$_score/${_questions.length}',
-                      style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$percentage%',
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: _restartExercise,
-                      child: const Text('Try Again'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Back to Lessons'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    final pct = (_score / _questions.length * 100).round(); final sw = MediaQuery.of(context).size.width;
+    String msg; String emoji; Color color;
+    if (pct == 100) { msg = 'Perfect Score!'; emoji = '🏆'; color = Colors.amber; }
+    else if (pct >= 80) { msg = 'Great Job!'; emoji = '🎉'; color = Colors.green; }
+    else if (pct >= 60) { msg = 'Good Try!'; emoji = '👍'; color = Colors.blue; }
+    else { msg = 'Keep Practicing!'; emoji = '💪'; color = Colors.orange; }
+    return Scaffold(backgroundColor: Colors.white,
+      appBar: AppBar(backgroundColor: Colors.white, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)), title: const Text('Exercise Complete'), centerTitle: true, elevation: 0),
+      body: Center(child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Text(emoji, style: const TextStyle(fontSize: 70)), const SizedBox(height: 15),
+        Text(msg, style: TextStyle(fontSize: sw > 600 ? 30 : 26, fontWeight: FontWeight.bold, color: color)), const SizedBox(height: 25),
+        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: color, width: 2)),
+          child: Column(children: [const Text('Your Score', style: TextStyle(fontSize: 16)), const SizedBox(height: 8), Text('$_score/${_questions.length}', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text('$pct%', style: const TextStyle(fontSize: 24))])),
+        const SizedBox(height: 30),
+        Row(children: [
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 14)), onPressed: _restartExercise, child: const Text('Try Again'))),
+          const SizedBox(width: 10),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 14)), onPressed: () => Navigator.pop(context), child: const Text('Back to Lessons'))),
+        ]),
+      ]))));
   }
 }
 
@@ -22777,12 +18839,7 @@ class DecimalExerciseScreen extends StatefulWidget {
   final String language;
   final int subLessonIndex;
 
-  const DecimalExerciseScreen({
-    super.key,
-    required this.lessonName,
-    required this.language,
-    required this.subLessonIndex,
-  });
+  const DecimalExerciseScreen({super.key, required this.lessonName, required this.language, required this.subLessonIndex});
 
   @override
   State<DecimalExerciseScreen> createState() => _DecimalExerciseScreenState();
@@ -22794,1160 +18851,252 @@ class _DecimalExerciseScreenState extends State<DecimalExerciseScreen> {
   bool _exerciseCompleted = false;
   List<dynamic> _userAnswers = List.filled(15, null);
   List<bool> _answeredQuestions = List.filled(15, false);
-  
-  // For drag and drop
+
   List<String> _dragItems = [];
-  List<String> _dragTargets = [];
-  
-  // For matching type
   Map<int, Map<int, int>> _matchingSelections = {};
-  
-  // For drag drop match
   Map<int, Map<int, String>> _matchFilledBlanks = {};
-  
-  // Track if drag items are initialized
   bool _dragItemsInitialized = false;
 
   final List<Map<String, dynamic>> _questions = [
-    // ===== MULTIPLE CHOICE - DECIMAL TO FRACTION (5 items) =====
-    // 1. Basic conversion 0.5
-    {
-      'id': 1,
-      'type': 'multiple_choice',
-      'question': 'Convert 0.5 to fraction:',
-      'options': ['1/2', '1/4', '3/4', '1/8'],
-      'correctAnswer': 0,
-      'explanation': '0.5 = 5/10 = 1/2',
-    },
-    // 2. Basic conversion 0.25
-    {
-      'id': 2,
-      'type': 'multiple_choice',
-      'question': 'Convert 0.25 to fraction:',
-      'options': ['1/4', '1/2', '3/4', '2/5'],
-      'correctAnswer': 0,
-      'explanation': '0.25 = 25/100 = 1/4',
-    },
-    // 3. Basic conversion 0.75
-    {
-      'id': 3,
-      'type': 'multiple_choice',
-      'question': 'Convert 0.75 to fraction:',
-      'options': ['1/4', '1/2', '3/4', '2/3'],
-      'correctAnswer': 2,
-      'explanation': '0.75 = 75/100 = 3/4',
-    },
-    // 4. Basic conversion 0.125
-    {
-      'id': 4,
-      'type': 'multiple_choice',
-      'question': 'Convert 0.125 to fraction:',
-      'options': ['1/8', '1/4', '1/2', '3/8'],
-      'correctAnswer': 0,
-      'explanation': '0.125 = 125/1000 = 1/8',
-    },
-    // 5. Basic conversion 0.2
-    {
-      'id': 5,
-      'type': 'multiple_choice',
-      'question': 'Convert 0.2 to fraction:',
-      'options': ['1/5', '1/4', '1/2', '2/5'],
-      'correctAnswer': 0,
-      'explanation': '0.2 = 2/10 = 1/5',
-    },
-
-    // ===== MATCHING TYPE - DECIMAL TO FRACTION (3 items) =====
-    // 6. Match decimals to fractions
-    {
-      'id': 6,
-      'type': 'matching',
-      'question': 'Match each decimal with its equivalent fraction:',
-      'leftItems': ['0.5', '0.25', '0.75', '0.2'],
-      'rightItems': ['1/2', '1/4', '3/4', '1/5'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': '0.5 = 1/2, 0.25 = 1/4, 0.75 = 3/4, 0.2 = 1/5',
-    },
-    
-    // 7. Match decimals to fractions (more challenging)
-    {
-      'id': 7,
-      'type': 'matching',
-      'question': 'Match each decimal with its equivalent fraction:',
-      'leftItems': ['0.125', '0.4', '0.6', '0.8'],
-      'rightItems': ['1/8', '2/5', '3/5', '4/5'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': '0.125 = 1/8, 0.4 = 2/5, 0.6 = 3/5, 0.8 = 4/5',
-    },
-    
-    // 8. Match decimals to fractions (mixed)
-    {
-      'id': 8,
-      'type': 'matching',
-      'question': 'Match each decimal with its equivalent fraction:',
-      'leftItems': ['0.3', '0.7', '0.9', '0.1'],
-      'rightItems': ['3/10', '7/10', '9/10', '1/10'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': '0.3 = 3/10, 0.7 = 7/10, 0.9 = 9/10, 0.1 = 1/10',
-    },
-
-    // ===== MULTIPLE CHOICE - PLACE VALUE (3 items) =====
-    // 9. Tenths place
-    {
-      'id': 9,
-      'type': 'multiple_choice',
-      'question': 'In 3.4, what is the place value of 4?',
-      'options': ['Tenths', 'Hundredths', 'Thousandths', 'Ones'],
-      'correctAnswer': 0,
-      'explanation': '3.4 = 3 ones and 4 tenths',
-    },
-    // 10. Hundredths place
-    {
-      'id': 10,
-      'type': 'multiple_choice',
-      'question': 'In 5.67, what is the place value of 7?',
-      'options': ['Tenths', 'Hundredths', 'Thousandths', 'Ones'],
-      'correctAnswer': 1,
-      'explanation': '5.67 = 5 ones, 6 tenths, 7 hundredths',
-    },
-    // 11. Thousandths place
-    {
-      'id': 11,
-      'type': 'multiple_choice',
-      'question': 'In 8.123, what is the place value of 3?',
-      'options': ['Tenths', 'Hundredths', 'Thousandths', 'Ones'],
-      'correctAnswer': 2,
-      'explanation': '8.123 = 8 ones, 1 tenth, 2 hundredths, 3 thousandths',
-    },
-
-    // ===== DRAG AND DROP - PLACE VALUE (2 items) =====
-    // 12. Drag and drop place value identification
-    {
-      'id': 12,
-      'type': 'drag_drop_match',
-      'question': 'Drag the correct place value to match each digit in 3.456:',
-      'leftItems': ['Digit 4', 'Digit 5', 'Digit 6'],
-      'rightItems': ['Tenths', 'Hundredths', 'Thousandths'],
-      'correctMatches': [0, 1, 2],
-      'explanation': 'In 3.456: 4 is in tenths, 5 is in hundredths, 6 is in thousandths',
-    },
-    
-    // 13. Drag and drop place value identification
-    {
-      'id': 13,
-      'type': 'drag_drop_match',
-      'question': 'Drag the correct digit to match each place value in 7.89:',
-      'leftItems': ['Tenths place', 'Hundredths place', 'Ones place'],
-      'rightItems': ['8', '9', '7'],
-      'correctMatches': [0, 1, 2],
-      'explanation': 'In 7.89: 7 is in ones, 8 is in tenths, 9 is in hundredths',
-    },
-
-    // ===== DRAG AND DROP - DECIMAL TO FRACTION (2 items) =====
-    // 14. Drag and drop decimal to fraction match
-    {
-      'id': 14,
-      'type': 'drag_drop_match',
-      'question': 'Drag the correct fraction to match each decimal:',
-      'leftItems': ['0.5', '0.25', '0.75', '0.125'],
-      'rightItems': ['1/2', '1/4', '3/4', '1/8'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': '0.5 = 1/2, 0.25 = 1/4, 0.75 = 3/4, 0.125 = 1/8',
-    },
-    
-    // 15. Drag and drop decimal to fraction match
-    {
-      'id': 15,
-      'type': 'drag_drop_match',
-      'question': 'Drag the correct decimal to match each fraction:',
-      'leftItems': ['1/5', '2/5', '3/5', '4/5'],
-      'rightItems': ['0.2', '0.4', '0.6', '0.8'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': '1/5 = 0.2, 2/5 = 0.4, 3/5 = 0.6, 4/5 = 0.8',
-    },
+    {'id': 1, 'type': 'multiple_choice', 'question': 'Convert 0.5 to fraction:', 'options': ['1/2', '1/4', '3/4', '1/8'], 'correctAnswer': 0, 'explanation': '0.5 = 5/10 = 1/2'},
+    {'id': 2, 'type': 'multiple_choice', 'question': 'Convert 0.25 to fraction:', 'options': ['1/4', '1/2', '3/4', '2/5'], 'correctAnswer': 0, 'explanation': '0.25 = 25/100 = 1/4'},
+    {'id': 3, 'type': 'multiple_choice', 'question': 'Convert 0.75 to fraction:', 'options': ['1/4', '1/2', '3/4', '2/3'], 'correctAnswer': 2, 'explanation': '0.75 = 75/100 = 3/4'},
+    {'id': 4, 'type': 'multiple_choice', 'question': 'Convert 0.125 to fraction:', 'options': ['1/8', '1/4', '1/2', '3/8'], 'correctAnswer': 0, 'explanation': '0.125 = 125/1000 = 1/8'},
+    {'id': 5, 'type': 'multiple_choice', 'question': 'Convert 0.2 to fraction:', 'options': ['1/5', '1/4', '1/2', '2/5'], 'correctAnswer': 0, 'explanation': '0.2 = 2/10 = 1/5'},
+    {'id': 6, 'type': 'matching', 'question': 'Match each decimal with its equivalent fraction:',
+      'leftItems': ['0.5', '0.25', '0.75', '0.2'], 'rightItems': ['1/2', '1/4', '3/4', '1/5'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '0.5=1/2, 0.25=1/4, 0.75=3/4, 0.2=1/5'},
+    {'id': 7, 'type': 'matching', 'question': 'Match each decimal with its equivalent fraction:',
+      'leftItems': ['0.125', '0.4', '0.6', '0.8'], 'rightItems': ['1/8', '2/5', '3/5', '4/5'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '0.125=1/8, 0.4=2/5, 0.6=3/5, 0.8=4/5'},
+    {'id': 8, 'type': 'matching', 'question': 'Match each decimal with its equivalent fraction:',
+      'leftItems': ['0.3', '0.7', '0.9', '0.1'], 'rightItems': ['3/10', '7/10', '9/10', '1/10'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '0.3=3/10, 0.7=7/10, 0.9=9/10, 0.1=1/10'},
+    {'id': 9, 'type': 'multiple_choice', 'question': 'In 3.4, what is the place value of 4?',
+      'options': ['Tenths', 'Hundredths', 'Thousandths', 'Ones'], 'correctAnswer': 0, 'explanation': '3.4 = 3 ones and 4 tenths'},
+    {'id': 10, 'type': 'multiple_choice', 'question': 'In 5.67, what is the place value of 7?',
+      'options': ['Tenths', 'Hundredths', 'Thousandths', 'Ones'], 'correctAnswer': 1, 'explanation': '5.67 = 5 ones, 6 tenths, 7 hundredths'},
+    {'id': 11, 'type': 'multiple_choice', 'question': 'In 8.123, what is the place value of 3?',
+      'options': ['Tenths', 'Hundredths', 'Thousandths', 'Ones'], 'correctAnswer': 2, 'explanation': '8.123 = 8 ones, 1 tenth, 2 hundredths, 3 thousandths'},
+    {'id': 12, 'type': 'drag_drop_match', 'question': 'Drag the correct place value to match each digit in 3.456:',
+      'leftItems': ['Digit 4', 'Digit 5', 'Digit 6'], 'rightItems': ['Tenths', 'Hundredths', 'Thousandths'],
+      'correctMatches': [0, 1, 2], 'explanation': 'In 3.456: 4=tenths, 5=hundredths, 6=thousandths'},
+    {'id': 13, 'type': 'drag_drop_match', 'question': 'Drag the correct digit to match each place value in 7.89:',
+      'leftItems': ['Tenths place', 'Hundredths place', 'Ones place'], 'rightItems': ['8', '9', '7'],
+      'correctMatches': [0, 1, 2], 'explanation': 'In 7.89: 7=ones, 8=tenths, 9=hundredths'},
+    {'id': 14, 'type': 'drag_drop_match', 'question': 'Drag the correct fraction to match each decimal:',
+      'leftItems': ['0.5', '0.25', '0.75', '0.125'], 'rightItems': ['1/2', '1/4', '3/4', '1/8'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '0.5=1/2, 0.25=1/4, 0.75=3/4, 0.125=1/8'},
+    {'id': 15, 'type': 'drag_drop_match', 'question': 'Drag the correct decimal to match each fraction:',
+      'leftItems': ['1/5', '2/5', '3/5', '4/5'], 'rightItems': ['0.2', '0.4', '0.6', '0.8'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '1/5=0.2, 2/5=0.4, 3/5=0.6, 4/5=0.8'},
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _initQuestion();
-  }
+  void initState() { super.initState(); _initQuestion(); }
 
   void _initQuestion() {
     _dragItemsInitialized = false;
-    _initDragItems();
-    _initMatchingSelections();
-    _initMatchBlanks();
-  }
-
-  void _initDragItems() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_match') {
-      if (question.containsKey('rightItems')) {
-        _dragItems = List<String>.from(question['rightItems'] as List);
-        _dragItems.shuffle();
-        _dragTargets = List.filled((question['leftItems'] as List).length, '');
-      }
+    final q = _questions[_currentQuestion];
+    if (q['type'] == 'drag_drop_match') {
+      _dragItems = List<String>.from(q['rightItems'] as List);
+      _dragItems.shuffle();
+      _matchFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'matching') {
+      _matchingSelections[_currentQuestion] = {};
     }
     _dragItemsInitialized = true;
   }
 
-  void _initMatchingSelections() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'matching') {
-      _matchingSelections[_currentQuestion] = {};
-    }
-  }
+  void _updateMatchingSelection(int li, int ri) { setState(() { _matchingSelections[_currentQuestion] ??= {}; _matchingSelections[_currentQuestion]![li] = ri; }); }
+  void _updateMatchBlank(int i, String v) { setState(() { _matchFilledBlanks[_currentQuestion] ??= {}; _matchFilledBlanks[_currentQuestion]![i] = v; _dragItems.remove(v); }); }
 
-  void _initMatchBlanks() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_match') {
-      _matchFilledBlanks[_currentQuestion] = {};
-    }
-  }
-
-  void _updateMatchingSelection(int leftIndex, int rightIndex) {
-    setState(() {
-      if (!_matchingSelections.containsKey(_currentQuestion)) {
-        _matchingSelections[_currentQuestion] = {};
-      }
-      _matchingSelections[_currentQuestion]![leftIndex] = rightIndex;
-    });
-  }
-
-  void _updateMatchBlank(int index, String value) {
-    setState(() {
-      if (!_matchFilledBlanks.containsKey(_currentQuestion)) {
-        _matchFilledBlanks[_currentQuestion] = {};
-      }
-      _matchFilledBlanks[_currentQuestion]![index] = value;
-      _dragItems.remove(value);
-    });
-  }
-
-  bool _isMatchingComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'matching') return true;
-    
-    final leftItems = question['leftItems'] as List;
-    final selections = _matchingSelections[questionIndex];
-    
-    if (selections == null) return false;
-    return selections.length == leftItems.length;
-  }
-
-  bool _isMatchComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'drag_drop_match') return true;
-    
-    final leftItems = question['leftItems'] as List;
-    final matches = _matchFilledBlanks[questionIndex];
-    
-    if (matches == null) return false;
-    return matches.length == leftItems.length;
-  }
-
-  bool _isDragDropComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (!question['type'].toString().startsWith('drag_drop')) return true;
-    
-    if (question['type'] == 'drag_drop_match') {
-      return _isMatchComplete(questionIndex);
-    }
-    return false;
-  }
+  bool _isMatchComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'drag_drop_match') return true; final m = _matchFilledBlanks[qi]; return m != null && m.length == (q['leftItems'] as List).length; }
+  bool _isMatchingComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'matching') return true; final m = _matchingSelections[qi]; return m != null && m.length == (q['leftItems'] as List).length; }
 
   void _answerQuestion(dynamic answer) {
-    if (!_answeredQuestions[_currentQuestion]) {
-      setState(() {
-        _answeredQuestions[_currentQuestion] = true;
-        _userAnswers[_currentQuestion] = answer;
-
-        final question = _questions[_currentQuestion];
-        bool isCorrect = false;
-
-        if (question['type'] == 'multiple_choice') {
-          isCorrect = answer == question['correctAnswer'];
-        } else if (question['type'] == 'matching') {
-          isCorrect = _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
-        } else if (question['type'] == 'drag_drop_match') {
-          isCorrect = _checkDragDropMatch(answer as List<String>, question['correctMatches']);
-        }
-
-        if (isCorrect) {
-          _score++;
-        }
-        
-        if (_answeredQuestions.every((answered) => answered)) {
-          _exerciseCompleted = true;
-          _recordExerciseResults();
-        }
-      });
-    }
-  }
-
-  bool _checkMatchingAnswer(Map<int, int> userMatches, List<int> correctMatches) {
-    if (userMatches.length != correctMatches.length) return false;
-    
-    for (int i = 0; i < correctMatches.length; i++) {
-      if (userMatches[i] != correctMatches[i]) return false;
-    }
-    return true;
-  }
-
-  bool _checkDragDropMatch(List<String> userMatches, List<int> correctMatches) {
-    if (userMatches.length != correctMatches.length) return false;
-    return true;
-  }
-
-  void _recordExerciseResults() {
-    final percentage = (_score / _questions.length * 100).toInt();
-    
-    progressManager.recordExerciseScore(
-      widget.lessonName,
-      widget.language,
-      widget.subLessonIndex,
-      'Decimal Comprehensive Exercise',
-      _score,
-      _questions.length,
-      _score,
-      percentage.toDouble(),
-    );
-  }
-
-  void _nextQuestion() {
-    if (_currentQuestion < _questions.length - 1) {
-      setState(() {
-        _currentQuestion++;
-        _initQuestion();
-      });
-    }
-  }
-
-  void _previousQuestion() {
-    if (_currentQuestion > 0) {
-      setState(() {
-        _currentQuestion--;
-        _initQuestion();
-      });
-    }
-  }
-
-  void _restartExercise() {
+    if (_answeredQuestions[_currentQuestion]) return;
     setState(() {
-      _currentQuestion = 0;
-      _score = 0;
-      _exerciseCompleted = false;
-      _userAnswers = List.filled(_questions.length, null);
-      _answeredQuestions = List.filled(_questions.length, false);
-      _matchingSelections.clear();
-      _matchFilledBlanks.clear();
-      _initQuestion();
+      _answeredQuestions[_currentQuestion] = true; _userAnswers[_currentQuestion] = answer;
+      final q = _questions[_currentQuestion]; bool isCorrect = false;
+      if (q['type'] == 'multiple_choice') isCorrect = answer == q['correctAnswer'];
+      else if (q['type'] == 'matching') isCorrect = _checkMatching(answer as Map<int, int>, q['correctMatches']);
+      else if (q['type'] == 'drag_drop_match') isCorrect = _checkDDMatch(answer as List<String>, q['correctMatches'], q['rightItems']);
+      if (isCorrect) _score++;
+      if (_answeredQuestions.every((a) => a)) { _exerciseCompleted = true; _recordResults(); }
     });
   }
 
-  void _submitInteractiveAnswer(Map<String, dynamic> question) {
-    dynamic answer;
-    
-    if (question['type'] == 'matching') {
-      final matches = _matchingSelections[_currentQuestion];
-      if (matches == null || matches.length != (question['leftItems'] as List).length) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all matches first'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      answer = matches;
-    } 
-    else if (question['type'] == 'drag_drop_match') {
-      if (!_isMatchComplete(_currentQuestion)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all matches'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      final matches = _matchFilledBlanks[_currentQuestion]!;
-      final List<String> answerList = [];
-      for (int i = 0; i < (question['leftItems'] as List).length; i++) {
-        answerList.add(matches[i] ?? '');
-      }
-      answer = answerList;
-    }
-    
-    _answerQuestion(answer);
+  bool _checkMatching(Map<int, int> user, List<int> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
+    return true;
   }
 
-  bool _isAnswerCorrect(Map<String, dynamic> question) {
-    final answer = _userAnswers[_currentQuestion];
-    if (answer == null) return false;
-    
-    if (question['type'] == 'multiple_choice') {
-      return answer == question['correctAnswer'];
-    } else if (question['type'] == 'matching') {
-      return _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
+  // ✅ FIXED
+  bool _checkDDMatch(List<String> userMatches, List<int> correctMatches, List rightItems) {
+    if (userMatches.length != correctMatches.length) return false;
+    for (int i = 0; i < correctMatches.length; i++) {
+      final expected = rightItems[correctMatches[i]] as String;
+      if (userMatches[i] != expected) return false;
     }
     return true;
   }
 
-  String _getTypeName(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return 'MULTIPLE CHOICE';
-      case 'matching':
-        return 'MATCHING TYPE';
-      case 'drag_drop_match':
-        return 'DRAG & DROP';
-      default:
-        return '';
+  void _recordResults() {
+    final pct = (_score / _questions.length * 100).toInt();
+    progressManager.recordExerciseScore(widget.lessonName, widget.language, widget.subLessonIndex, 'Decimal Comprehensive Exercise', _score, _questions.length, _score, pct.toDouble());
+  }
+
+  void _nextQuestion() { if (_currentQuestion < _questions.length - 1) setState(() { _currentQuestion++; _initQuestion(); }); }
+  void _previousQuestion() { if (_currentQuestion > 0) setState(() { _currentQuestion--; _initQuestion(); }); }
+
+  void _restartExercise() {
+    setState(() { _currentQuestion = 0; _score = 0; _exerciseCompleted = false; _userAnswers = List.filled(_questions.length, null); _answeredQuestions = List.filled(_questions.length, false); _matchingSelections.clear(); _matchFilledBlanks.clear(); _initQuestion(); });
+  }
+
+  void _submitInteractiveAnswer(Map<String, dynamic> q) {
+    if (q['type'] == 'matching') {
+      if (!_isMatchingComplete(_currentQuestion)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all matches first'), duration: Duration(seconds: 2))); return; }
+      _answerQuestion(Map<int, int>.from(_matchingSelections[_currentQuestion]!));
+    } else if (q['type'] == 'drag_drop_match') {
+      if (!_isMatchComplete(_currentQuestion)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all matches'), duration: Duration(seconds: 2))); return; }
+      final m = _matchFilledBlanks[_currentQuestion]!;
+      final List<String> ans = [];
+      for (int i = 0; i < (q['leftItems'] as List).length; i++) ans.add(m[i] ?? '');
+      _answerQuestion(ans);
     }
   }
 
-  Color _getTypeColor(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return Colors.blue;
-      case 'matching':
-        return Colors.purple;
-      case 'drag_drop_match':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
+  bool _isAnswerCorrect(Map<String, dynamic> q) {
+    final a = _userAnswers[_currentQuestion]; if (a == null) return false;
+    if (q['type'] == 'multiple_choice') return a == q['correctAnswer'];
+    if (q['type'] == 'matching') return _checkMatching(a as Map<int, int>, q['correctMatches']);
+    return true;
   }
+
+  Color _getTypeColor(String t) { if (t == 'multiple_choice') return Colors.blue; if (t == 'matching') return Colors.purple; return Colors.orange; }
+  String _getTypeName(String t) { if (t == 'multiple_choice') return 'MULTIPLE CHOICE'; if (t == 'matching') return 'MATCHING TYPE'; return 'DRAG & DROP'; }
 
   @override
   Widget build(BuildContext context) {
-    if (_exerciseCompleted) {
-      return _buildResultsScreen();
-    }
-
-    final currentQuestion = _questions[_currentQuestion];
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Decimal Numbers Exercise',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: screenWidth * 0.04,
-            vertical: screenHeight * 0.02,
-          ),
-          child: Column(
-            children: [
-              // Progress header
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _getTypeColor(currentQuestion['type']).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: _getTypeColor(currentQuestion['type']), width: 1),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Question ${_currentQuestion + 1}/${_questions.length}',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.045,
-                            fontWeight: FontWeight.bold,
-                            color: _getTypeColor(currentQuestion['type']),
-                          ),
-                        ),
-                        Text(
-                          _getTypeName(currentQuestion['type']),
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            color: _getTypeColor(currentQuestion['type']).withOpacity(0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.amber, width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.star, color: Colors.amber, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$_score',
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.04,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Question card
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(screenWidth * 0.05),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.black, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color.fromRGBO(0, 0, 0, 0.15),
-                      blurRadius: 8,
-                      offset: const Offset(4, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Question text
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.02),
-                      child: Text(
-                        currentQuestion['question'] as String,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.045,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Question content based on type
-                    if (currentQuestion['type'] == 'multiple_choice')
-                      _buildMultipleChoice(currentQuestion, screenWidth)
-                    else if (currentQuestion['type'] == 'matching')
-                      _buildMatchingType(currentQuestion, screenWidth)
-                    else if (currentQuestion['type'] == 'drag_drop_match' && _dragItemsInitialized)
-                      _buildDragDropMatch(currentQuestion, screenWidth),
-
-                    const SizedBox(height: 15),
-
-                    // Submit button for interactive types
-                    if (!_answeredQuestions[_currentQuestion] && 
-                        (currentQuestion['type'] == 'matching' || 
-                         currentQuestion['type'] == 'drag_drop_match'))
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(180, 40),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                        ),
-                        onPressed: () => _submitInteractiveAnswer(currentQuestion),
-                        child: const Text('Submit Answer', style: TextStyle(fontSize: 14)),
-                      ),
-
-                    const SizedBox(height: 15),
-
-                    // Explanation
-                    if (_answeredQuestions[_currentQuestion])
-                      Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.all(screenWidth * 0.03),
-                        decoration: BoxDecoration(
-                          color: _isAnswerCorrect(currentQuestion) ? Colors.green[50] : Colors.red[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _isAnswerCorrect(currentQuestion) ? Colors.green : Colors.red,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          _isAnswerCorrect(currentQuestion)
-                              ? '✓ Correct! ${currentQuestion['explanation'] as String}'
-                              : '✗ ${currentQuestion['explanation'] as String}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: screenWidth > 600 ? 15 : 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Navigation buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _currentQuestion > 0 ? _previousQuestion : null,
-                      child: const Text('Previous', style: TextStyle(fontSize: 14)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null,
-                      child: Text(
-                        _currentQuestion == _questions.length - 1 ? 'Finish' : 'Next',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    if (_exerciseCompleted) return _buildResultsScreen();
+    final q = _questions[_currentQuestion]; final sw = MediaQuery.of(context).size.width;
+    return Scaffold(backgroundColor: Colors.white,
+      appBar: AppBar(backgroundColor: Colors.white, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)), title: const Text('Decimal Numbers Exercise', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)), centerTitle: true, elevation: 0),
+      body: SafeArea(child: SingleChildScrollView(padding: EdgeInsets.symmetric(horizontal: sw * 0.04, vertical: 16), child: Column(children: [
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: _getTypeColor(q['type']).withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: _getTypeColor(q['type']), width: 1)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Question ${_currentQuestion + 1}/${_questions.length}', style: TextStyle(fontSize: sw * 0.045, fontWeight: FontWeight.bold, color: _getTypeColor(q['type']))), Text(_getTypeName(q['type']), style: TextStyle(fontSize: sw * 0.035, color: _getTypeColor(q['type']).withOpacity(0.8)))]),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber)), child: Row(children: [const Icon(Icons.star, color: Colors.amber, size: 16), const SizedBox(width: 4), Text('$_score', style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold, color: Colors.amber[800]))])),
+          ])),
+        const SizedBox(height: 20),
+        Container(width: double.infinity, padding: EdgeInsets.all(sw * 0.05),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.black, width: 2), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8, offset: const Offset(4, 4))]),
+          child: Column(children: [
+            Text(q['question'] as String, textAlign: TextAlign.center, style: TextStyle(fontSize: sw * 0.045, fontWeight: FontWeight.bold), maxLines: 3, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 20),
+            if (q['type'] == 'multiple_choice') _buildMC(q, sw)
+            else if (q['type'] == 'matching') _buildMatching(q, sw)
+            else if (q['type'] == 'drag_drop_match' && _dragItemsInitialized) _buildDDMatch(q, sw),
+            const SizedBox(height: 15),
+            if (!_answeredQuestions[_currentQuestion] && (q['type'] == 'matching' || q['type'] == 'drag_drop_match'))
+              ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, minimumSize: const Size(180, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))), onPressed: () => _submitInteractiveAnswer(q), child: const Text('Submit Answer', style: TextStyle(fontSize: 14))),
+            const SizedBox(height: 15),
+            if (_answeredQuestions[_currentQuestion])
+              Container(width: double.infinity, padding: EdgeInsets.all(sw * 0.03),
+                decoration: BoxDecoration(color: _isAnswerCorrect(q) ? Colors.green[50] : Colors.red[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: _isAnswerCorrect(q) ? Colors.green : Colors.red, width: 1.5)),
+                child: Text(_isAnswerCorrect(q) ? '✓ Correct! ${q['explanation']}' : '✗ ${q['explanation']}', textAlign: TextAlign.center, style: TextStyle(fontSize: sw > 600 ? 15 : 13, fontWeight: FontWeight.w500))),
+          ])),
+        const SizedBox(height: 15),
+        Row(children: [
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1), onPressed: _currentQuestion > 0 ? _previousQuestion : null, child: const Text('Previous', style: TextStyle(fontSize: 14)))),
+          const SizedBox(width: 10),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1), onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null, child: Text(_currentQuestion == _questions.length - 1 ? 'Finish' : 'Next', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)))),
+        ]),
+      ]))));
   }
 
-  // ===== MULTIPLE CHOICE BUILDER =====
-  Widget _buildMultipleChoice(Map<String, dynamic> question, double screenWidth) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: screenWidth > 600 ? 2.2 : 2.0,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: (question['options'] as List).length,
-      itemBuilder: (context, index) {
-        final isAnswered = _answeredQuestions[_currentQuestion];
-        final isSelected = _userAnswers[_currentQuestion] == index;
-        final isCorrect = index == (question['correctAnswer'] as int);
-
-        Color buttonColor = Colors.white;
-        if (isAnswered) {
-          if (isSelected && isCorrect) {
-            buttonColor = Colors.green;
-          } else if (isSelected && !isCorrect) {
-            buttonColor = Colors.red;
-          } else if (isCorrect) {
-            buttonColor = Colors.green[100]!;
-          }
-        }
-
-        return GestureDetector(
-          onTap: isAnswered ? null : () => _answerQuestion(index),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: buttonColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isSelected ? Colors.black : Colors.grey[300]!,
-                width: isSelected ? 2 : 1,
-              ),
-              boxShadow: [
-                if (!isAnswered)
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
-              ],
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Text(
-                  (question['options'] as List)[index] as String,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: screenWidth > 600 ? 18 : 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+  Widget _buildMC(Map<String, dynamic> q, double sw) {
+    return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: sw > 600 ? 2.2 : 2.0, crossAxisSpacing: 8, mainAxisSpacing: 8),
+      itemCount: (q['options'] as List).length,
+      itemBuilder: (context, i) {
+        final isAnswered = _answeredQuestions[_currentQuestion]; final isSel = _userAnswers[_currentQuestion] == i; final isCorrect = i == (q['correctAnswer'] as int);
+        Color c = Colors.white;
+        if (isAnswered) { if (isSel && isCorrect) c = Colors.green; else if (isSel) c = Colors.red; else if (isCorrect) c = Colors.green[100]!; }
+        return GestureDetector(onTap: isAnswered ? null : () => _answerQuestion(i),
+          child: AnimatedContainer(duration: const Duration(milliseconds: 200), decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(10), border: Border.all(color: isSel ? Colors.black : Colors.grey[300]!, width: isSel ? 2 : 1)),
+            child: Center(child: Padding(padding: const EdgeInsets.all(6), child: Text((q['options'] as List)[i] as String, textAlign: TextAlign.center, style: TextStyle(fontSize: sw > 600 ? 18 : 16, fontWeight: FontWeight.bold))))));
+      });
   }
 
-  // ===== MATCHING TYPE BUILDER =====
-  Widget _buildMatchingType(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    final rightItems = question['rightItems'] as List;
-    
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.purple[200]!, width: 1.5),
-      ),
-      child: Column(
-        children: [
-          // Headers
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.purple[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Decimal',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.purple[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Fraction',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
+  Widget _buildMatching(Map<String, dynamic> q, double sw) {
+    final left = q['leftItems'] as List; final right = q['rightItems'] as List;
+    return Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.purple[200]!, width: 1.5)),
+      child: Column(children: [
+        Row(children: [
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Decimal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center))),
+          const SizedBox(width: 8),
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Fraction', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center))),
+        ]),
+        const SizedBox(height: 8),
+        ...List.generate(left.length, (i) => Padding(padding: const EdgeInsets.only(bottom: 6),
+          child: Row(children: [
+            Expanded(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey[300]!)), child: Text(left[i] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)))),
+            const SizedBox(width: 8),
+            Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 6), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.purple[300]!)),
+              child: DropdownButton<int>(value: _matchingSelections[_currentQuestion]?[i], hint: const Text('Select', style: TextStyle(fontSize: 12)), isExpanded: true, underline: const SizedBox(), iconSize: 20,
+                items: List.generate(right.length, (j) => DropdownMenuItem<int>(value: j, child: Text(right[j] as String, style: const TextStyle(fontSize: 12)))),
+                onChanged: _answeredQuestions[_currentQuestion] ? null : (v) => _updateMatchingSelection(i, v!)))),
+          ]))),
+      ]));
+  }
+
+  Widget _buildDDMatch(Map<String, dynamic> q, double sw) {
+    final left = q['leftItems'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange, width: 1.5)),
+        child: Column(children: List.generate(left.length, (i) {
+          final fv = _matchFilledBlanks[_currentQuestion]?[i];
+          return Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [
+            Expanded(flex: 2, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.orange[300]!)), child: Text(left[i] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13)))),
+            const SizedBox(width: 8),
+            Expanded(child: DragTarget<String>(
+              builder: (ctx, cd, rd) => Container(height: 40, decoration: BoxDecoration(color: fv == null ? Colors.orange[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.orange : Colors.orange[700]!, width: 1.5)), child: Center(child: Text(fv ?? 'Drop', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: fv == null ? Colors.grey : Colors.black)))),
+              onWillAccept: (d) => _matchFilledBlanks[_currentQuestion]?[i] == null,
+              onAccept: (d) { _updateMatchBlank(i, d); ss(() {}); })),
+          ]));
+        }))),
+      const SizedBox(height: 12),
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag answers:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 8),
-          
-          // Matching rows
-          ...List.generate(leftItems.length, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  // Left item
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Text(
-                        leftItems[index] as String,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 8),
-                  
-                  // Right dropdown
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.purple[300]!),
-                      ),
-                      child: DropdownButton<int>(
-                        value: _matchingSelections[_currentQuestion]?[index],
-                        hint: const Text('Select', style: TextStyle(fontSize: 12)),
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconSize: 20,
-                        items: List.generate(rightItems.length, (i) {
-                          return DropdownMenuItem<int>(
-                            value: i,
-                            child: Text(rightItems[i] as String, style: const TextStyle(fontSize: 12)),
-                          );
-                        }),
-                        onChanged: _answeredQuestions[_currentQuestion] 
-                            ? null 
-                            : (value) {
-                                _updateMatchingSelection(index, value!);
-                              },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  // ===== DRAG AND DROP MATCH BUILDER =====
-  Widget _buildDragDropMatch(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Left items with drop targets
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.orange, width: 1.5),
-              ),
-              child: Column(
-                children: List.generate(leftItems.length, (index) {
-                  final filledValue = _matchFilledBlanks[_currentQuestion]?[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        // Left item
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.orange[300]!),
-                            ),
-                            child: Text(
-                              leftItems[index] as String,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(width: 8),
-                        
-                        // Drop target for match
-                        Expanded(
-                          child: DragTarget<String>(
-                            builder: (context, candidateData, rejectedData) {
-                              return Container(
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: filledValue == null
-                                      ? Colors.orange[100]
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: filledValue == null
-                                        ? Colors.orange
-                                        : Colors.orange[700]!,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    filledValue ?? 'Drop',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: filledValue == null ? Colors.grey : Colors.black,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                            onWillAccept: (data) {
-                              return _matchFilledBlanks[_currentQuestion]?[index] == null;
-                            },
-                            onAccept: (data) {
-                              _updateMatchBlank(index, data);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Drag items
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag answers:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _dragItems.map((item) {
-                      return Draggable<String>(
-                        data: item,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              item,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.red, width: 1.5),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+          Wrap(spacing: 6, runSpacing: 6, children: _dragItems.map((item) => Draggable<String>(data: item,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.red, width: 1.5)), child: Text(item, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))))).toList()),
+        ])),
+    ]));
   }
 
   Widget _buildResultsScreen() {
-    final percentage = (_score / _questions.length * 100).round();
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    String message;
-    String emoji;
-    Color color;
-
-    if (percentage == 100) {
-      message = 'Perfect Score!';
-      emoji = '🏆';
-      color = Colors.amber;
-    } else if (percentage >= 80) {
-      message = 'Great Job!';
-      emoji = '🎉';
-      color = Colors.green;
-    } else if (percentage >= 60) {
-      message = 'Good Try!';
-      emoji = '👍';
-      color = Colors.blue;
-    } else {
-      message = 'Keep Practicing!';
-      emoji = '💪';
-      color = Colors.orange;
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Exercise Complete'),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                emoji,
-                style: const TextStyle(fontSize: 70),
-              ),
-              const SizedBox(height: 15),
-              Text(
-                message,
-                style: TextStyle(
-                  fontSize: screenWidth > 600 ? 30 : 26,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 25),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: color, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Your Score',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$_score/${_questions.length}',
-                      style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$percentage%',
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: _restartExercise,
-                      child: const Text('Try Again'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Back to Lessons'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    final pct = (_score / _questions.length * 100).round(); final sw = MediaQuery.of(context).size.width;
+    String msg; String emoji; Color color;
+    if (pct == 100) { msg = 'Perfect Score!'; emoji = '🏆'; color = Colors.amber; } else if (pct >= 80) { msg = 'Great Job!'; emoji = '🎉'; color = Colors.green; } else if (pct >= 60) { msg = 'Good Try!'; emoji = '👍'; color = Colors.blue; } else { msg = 'Keep Practicing!'; emoji = '💪'; color = Colors.orange; }
+    return Scaffold(backgroundColor: Colors.white, appBar: AppBar(backgroundColor: Colors.white, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)), title: const Text('Exercise Complete'), centerTitle: true, elevation: 0),
+      body: Center(child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Text(emoji, style: const TextStyle(fontSize: 70)), const SizedBox(height: 15),
+        Text(msg, style: TextStyle(fontSize: sw > 600 ? 30 : 26, fontWeight: FontWeight.bold, color: color)), const SizedBox(height: 25),
+        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: color, width: 2)), child: Column(children: [const Text('Your Score', style: TextStyle(fontSize: 16)), const SizedBox(height: 8), Text('$_score/${_questions.length}', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text('$pct%', style: const TextStyle(fontSize: 24))])),
+        const SizedBox(height: 30),
+        Row(children: [
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 14)), onPressed: _restartExercise, child: const Text('Try Again'))),
+          const SizedBox(width: 10),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 14)), onPressed: () => Navigator.pop(context), child: const Text('Back to Lessons'))),
+        ]),
+      ]))));
   }
 }
 
@@ -25453,12 +20602,7 @@ class PercentageExerciseScreen extends StatefulWidget {
   final String language;
   final int subLessonIndex;
 
-  const PercentageExerciseScreen({
-    super.key,
-    required this.lessonName,
-    required this.language,
-    required this.subLessonIndex,
-  });
+  const PercentageExerciseScreen({super.key, required this.lessonName, required this.language, required this.subLessonIndex});
 
   @override
   State<PercentageExerciseScreen> createState() => _PercentageExerciseScreenState();
@@ -25470,1220 +20614,261 @@ class _PercentageExerciseScreenState extends State<PercentageExerciseScreen> {
   bool _exerciseCompleted = false;
   List<dynamic> _userAnswers = List.filled(15, null);
   List<bool> _answeredQuestions = List.filled(15, false);
-  
-  // For drag and drop
+
   List<String> _dragItems = [];
-  List<String> _dragTargets = [];
-  
-  // For matching type
   Map<int, Map<int, int>> _matchingSelections = {};
-  
-  // For drag drop match
   Map<int, Map<int, String>> _matchFilledBlanks = {};
-  
-  // Track if drag items are initialized
   bool _dragItemsInitialized = false;
 
   final List<Map<String, dynamic>> _questions = [
-    // ===== MULTIPLE CHOICE - DESCRIBING PERCENTAGE (4 items) =====
-    {
-      'id': 1,
-      'type': 'multiple_choice',
-      'category': 'describing',
-      'question': 'What does percentage mean?',
-      'options': [
-        'A part out of 100',
-        'A decimal number',
-        'A fraction with denominator 10',
-        'A whole number'
-      ],
-      'correctAnswer': 0,
-      'explanation': 'Percentage means "per hundred" - it represents a part out of 100.',
-    },
-    {
-      'id': 2,
-      'type': 'multiple_choice',
-      'category': 'describing',
-      'question': 'The symbol % means:',
-      'options': [
-        'Divide by 100',
-        'Multiply by 100',
-        'Add 100',
-        'Subtract 100'
-      ],
-      'correctAnswer': 0,
-      'explanation': 'The percent symbol % means "per hundred" or "divide by 100".',
-    },
-    {
-      'id': 3,
-      'type': 'multiple_choice',
-      'category': 'describing',
-      'question': '75% means:',
-      'options': [
-        '75 out of 100',
-        '75 out of 10',
-        '75 out of 1000',
-        '75 out of 50'
-      ],
-      'correctAnswer': 0,
-      'explanation': '75% means 75 out of 100 or 75/100.',
-    },
-    {
-      'id': 4,
-      'type': 'multiple_choice',
-      'category': 'describing',
-      'question': '50% is equivalent to:',
-      'options': [
-        'One-half',
-        'One-fourth',
-        'Three-fourths',
-        'One-third'
-      ],
-      'correctAnswer': 0,
-      'explanation': '50% = 50/100 = 1/2 or one-half.',
-    },
-
-    // ===== MULTIPLE CHOICE - FRACTION TO PERCENTAGE (3 items) =====
-    {
-      'id': 5,
-      'type': 'multiple_choice',
-      'category': 'fraction_to_percent',
-      'question': 'Convert 1/2 to percentage:',
-      'options': ['25%', '50%', '75%', '100%'],
-      'correctAnswer': 1,
-      'explanation': '1/2 = 50%. Half of 100 is 50.',
-    },
-    {
-      'id': 6,
-      'type': 'multiple_choice',
-      'category': 'fraction_to_percent',
-      'question': 'Convert 3/4 to percentage:',
-      'options': ['25%', '50%', '75%', '100%'],
-      'correctAnswer': 2,
-      'explanation': '3/4 = 75%. Three quarters of 100 is 75.',
-    },
-    {
-      'id': 7,
-      'type': 'multiple_choice',
-      'category': 'fraction_to_percent',
-      'question': 'Convert 1/4 to percentage:',
-      'options': ['25%', '50%', '75%', '100%'],
-      'correctAnswer': 0,
-      'explanation': '1/4 = 25%. One quarter of 100 is 25.',
-    },
-
-    // ===== MULTIPLE CHOICE - PERCENTAGE TO FRACTION (3 items) =====
-    {
-      'id': 8,
-      'type': 'multiple_choice',
-      'category': 'percent_to_fraction',
-      'question': 'Convert 50% to fraction (simplest form):',
-      'options': ['1/4', '1/2', '3/4', '5/10'],
-      'correctAnswer': 1,
-      'explanation': '50% = 50/100 = 1/2 (simplified).',
-    },
-    {
-      'id': 9,
-      'type': 'multiple_choice',
-      'category': 'percent_to_fraction',
-      'question': 'Convert 25% to fraction (simplest form):',
-      'options': ['1/4', '1/2', '3/4', '2/8'],
-      'correctAnswer': 0,
-      'explanation': '25% = 25/100 = 1/4 (simplified).',
-    },
-    {
-      'id': 10,
-      'type': 'multiple_choice',
-      'category': 'percent_to_fraction',
-      'question': 'Convert 75% to fraction (simplest form):',
-      'options': ['1/4', '1/2', '3/4', '7/10'],
-      'correctAnswer': 2,
-      'explanation': '75% = 75/100 = 3/4 (simplified).',
-    },
-
-    // ===== MATCHING TYPE - FRACTION TO PERCENTAGE (2 items) =====
-    {
-      'id': 11,
-      'type': 'matching',
-      'category': 'fraction_to_percent',
-      'question': 'Match each fraction with its percentage equivalent:',
-      'leftItems': ['1/2', '1/4', '3/4', '1/1'],
-      'rightItems': ['50%', '25%', '75%', '100%'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': '1/2 = 50%, 1/4 = 25%, 3/4 = 75%, 1/1 = 100%',
-    },
-    {
-      'id': 12,
-      'type': 'matching',
-      'category': 'percent_to_fraction',
-      'question': 'Match each percentage with its fraction equivalent:',
-      'leftItems': ['50%', '25%', '75%', '100%'],
-      'rightItems': ['1/2', '1/4', '3/4', '1/1'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': '50% = 1/2, 25% = 1/4, 75% = 3/4, 100% = 1/1',
-    },
-
-    // ===== DRAG AND DROP MATCH - MIXED (3 items) =====
-    {
-      'id': 13,
-      'type': 'drag_drop_match',
-      'category': 'mixed',
-      'question': 'Drag the correct percentage to match each fraction:',
-      'leftItems': ['1/2', '1/4', '3/4', '1/5'],
-      'rightItems': ['50%', '25%', '75%', '20%'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': '1/2 = 50%, 1/4 = 25%, 3/4 = 75%, 1/5 = 20%',
-    },
-    {
-      'id': 14,
-      'type': 'drag_drop_match',
-      'category': 'mixed',
-      'question': 'Drag the correct fraction to match each percentage:',
-      'leftItems': ['50%', '25%', '75%', '100%'],
-      'rightItems': ['1/2', '1/4', '3/4', '1/1'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': '50% = 1/2, 25% = 1/4, 75% = 3/4, 100% = 1/1',
-    },
-    {
-      'id': 15,
-      'type': 'drag_drop_match',
-      'category': 'mixed',
-      'question': 'Match each description with the correct percentage:',
-      'leftItems': ['One-half', 'One-fourth', 'Three-fourths', 'Whole'],
-      'rightItems': ['50%', '25%', '75%', '100%'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': 'One-half = 50%, One-fourth = 25%, Three-fourths = 75%, Whole = 100%',
-    },
+    {'id': 1, 'type': 'multiple_choice', 'category': 'describing', 'question': 'What does percentage mean?',
+      'options': ['A part out of 100', 'A decimal number', 'A fraction with denominator 10', 'A whole number'],
+      'correctAnswer': 0, 'explanation': 'Percentage means "per hundred" - it represents a part out of 100.'},
+    {'id': 2, 'type': 'multiple_choice', 'category': 'describing', 'question': 'The symbol % means:',
+      'options': ['Divide by 100', 'Multiply by 100', 'Add 100', 'Subtract 100'],
+      'correctAnswer': 0, 'explanation': 'The percent symbol % means "per hundred" or "divide by 100".'},
+    {'id': 3, 'type': 'multiple_choice', 'category': 'describing', 'question': '75% means:',
+      'options': ['75 out of 100', '75 out of 10', '75 out of 1000', '75 out of 50'],
+      'correctAnswer': 0, 'explanation': '75% means 75 out of 100 or 75/100.'},
+    {'id': 4, 'type': 'multiple_choice', 'category': 'describing', 'question': '50% is equivalent to:',
+      'options': ['One-half', 'One-fourth', 'Three-fourths', 'One-third'],
+      'correctAnswer': 0, 'explanation': '50% = 50/100 = 1/2 or one-half.'},
+    {'id': 5, 'type': 'multiple_choice', 'category': 'fraction_to_percent', 'question': 'Convert 1/2 to percentage:',
+      'options': ['25%', '50%', '75%', '100%'], 'correctAnswer': 1, 'explanation': '1/2 = 50%.'},
+    {'id': 6, 'type': 'multiple_choice', 'category': 'fraction_to_percent', 'question': 'Convert 3/4 to percentage:',
+      'options': ['25%', '50%', '75%', '100%'], 'correctAnswer': 2, 'explanation': '3/4 = 75%.'},
+    {'id': 7, 'type': 'multiple_choice', 'category': 'fraction_to_percent', 'question': 'Convert 1/4 to percentage:',
+      'options': ['25%', '50%', '75%', '100%'], 'correctAnswer': 0, 'explanation': '1/4 = 25%.'},
+    {'id': 8, 'type': 'multiple_choice', 'category': 'percent_to_fraction', 'question': 'Convert 50% to fraction (simplest form):',
+      'options': ['1/4', '1/2', '3/4', '5/10'], 'correctAnswer': 1, 'explanation': '50% = 50/100 = 1/2.'},
+    {'id': 9, 'type': 'multiple_choice', 'category': 'percent_to_fraction', 'question': 'Convert 25% to fraction (simplest form):',
+      'options': ['1/4', '1/2', '3/4', '2/8'], 'correctAnswer': 0, 'explanation': '25% = 25/100 = 1/4.'},
+    {'id': 10, 'type': 'multiple_choice', 'category': 'percent_to_fraction', 'question': 'Convert 75% to fraction (simplest form):',
+      'options': ['1/4', '1/2', '3/4', '7/10'], 'correctAnswer': 2, 'explanation': '75% = 75/100 = 3/4.'},
+    {'id': 11, 'type': 'matching', 'category': 'fraction_to_percent', 'question': 'Match each fraction with its percentage equivalent:',
+      'leftItems': ['1/2', '1/4', '3/4', '1/1'], 'rightItems': ['50%', '25%', '75%', '100%'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '1/2=50%, 1/4=25%, 3/4=75%, 1/1=100%'},
+    {'id': 12, 'type': 'matching', 'category': 'percent_to_fraction', 'question': 'Match each percentage with its fraction equivalent:',
+      'leftItems': ['50%', '25%', '75%', '100%'], 'rightItems': ['1/2', '1/4', '3/4', '1/1'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '50%=1/2, 25%=1/4, 75%=3/4, 100%=1/1'},
+    {'id': 13, 'type': 'drag_drop_match', 'category': 'mixed', 'question': 'Drag the correct percentage to match each fraction:',
+      'leftItems': ['1/2', '1/4', '3/4', '1/5'], 'rightItems': ['50%', '25%', '75%', '20%'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '1/2=50%, 1/4=25%, 3/4=75%, 1/5=20%'},
+    {'id': 14, 'type': 'drag_drop_match', 'category': 'mixed', 'question': 'Drag the correct fraction to match each percentage:',
+      'leftItems': ['50%', '25%', '75%', '100%'], 'rightItems': ['1/2', '1/4', '3/4', '1/1'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '50%=1/2, 25%=1/4, 75%=3/4, 100%=1/1'},
+    {'id': 15, 'type': 'drag_drop_match', 'category': 'mixed', 'question': 'Match each description with the correct percentage:',
+      'leftItems': ['One-half', 'One-fourth', 'Three-fourths', 'Whole'], 'rightItems': ['50%', '25%', '75%', '100%'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': 'One-half=50%, One-fourth=25%, Three-fourths=75%, Whole=100%'},
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _initQuestion();
-  }
+  void initState() { super.initState(); _initQuestion(); }
 
   void _initQuestion() {
     _dragItemsInitialized = false;
-    _initDragItems();
-    _initMatchingSelections();
-    _initMatchBlanks();
-  }
-
-  void _initDragItems() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_match') {
-      if (question.containsKey('rightItems')) {
-        _dragItems = List<String>.from(question['rightItems'] as List);
-        _dragItems.shuffle();
-        _dragTargets = List.filled((question['leftItems'] as List).length, '');
-      }
+    final q = _questions[_currentQuestion];
+    if (q['type'] == 'drag_drop_match') {
+      _dragItems = List<String>.from(q['rightItems'] as List);
+      _dragItems.shuffle();
+      _matchFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'matching') {
+      _matchingSelections[_currentQuestion] = {};
     }
     _dragItemsInitialized = true;
   }
 
-  void _initMatchingSelections() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'matching') {
-      _matchingSelections[_currentQuestion] = {};
-    }
-  }
-
-  void _initMatchBlanks() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_match') {
-      _matchFilledBlanks[_currentQuestion] = {};
-    }
-  }
-
-  void _updateMatchingSelection(int leftIndex, int rightIndex) {
-    setState(() {
-      if (!_matchingSelections.containsKey(_currentQuestion)) {
-        _matchingSelections[_currentQuestion] = {};
-      }
-      _matchingSelections[_currentQuestion]![leftIndex] = rightIndex;
-    });
-  }
-
-  void _updateMatchBlank(int index, String value) {
-    setState(() {
-      if (!_matchFilledBlanks.containsKey(_currentQuestion)) {
-        _matchFilledBlanks[_currentQuestion] = {};
-      }
-      _matchFilledBlanks[_currentQuestion]![index] = value;
-      _dragItems.remove(value);
-    });
-  }
-
-  bool _isMatchingComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'matching') return true;
-    
-    final leftItems = question['leftItems'] as List;
-    final selections = _matchingSelections[questionIndex];
-    
-    if (selections == null) return false;
-    return selections.length == leftItems.length;
-  }
-
-  bool _isMatchComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'drag_drop_match') return true;
-    
-    final leftItems = question['leftItems'] as List;
-    final matches = _matchFilledBlanks[questionIndex];
-    
-    if (matches == null) return false;
-    return matches.length == leftItems.length;
-  }
+  void _updateMatchingSelection(int li, int ri) { setState(() { _matchingSelections[_currentQuestion] ??= {}; _matchingSelections[_currentQuestion]![li] = ri; }); }
+  void _updateMatchBlank(int i, String v) { setState(() { _matchFilledBlanks[_currentQuestion] ??= {}; _matchFilledBlanks[_currentQuestion]![i] = v; _dragItems.remove(v); }); }
+  bool _isMatchComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'drag_drop_match') return true; final m = _matchFilledBlanks[qi]; return m != null && m.length == (q['leftItems'] as List).length; }
+  bool _isMatchingComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'matching') return true; final m = _matchingSelections[qi]; return m != null && m.length == (q['leftItems'] as List).length; }
 
   void _answerQuestion(dynamic answer) {
-    if (!_answeredQuestions[_currentQuestion]) {
-      setState(() {
-        _answeredQuestions[_currentQuestion] = true;
-        _userAnswers[_currentQuestion] = answer;
-
-        final question = _questions[_currentQuestion];
-        bool isCorrect = false;
-
-        if (question['type'] == 'multiple_choice') {
-          isCorrect = answer == question['correctAnswer'];
-        } else if (question['type'] == 'matching') {
-          isCorrect = _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
-        } else if (question['type'] == 'drag_drop_match') {
-          isCorrect = _checkDragDropMatch(answer as List<String>, question['correctMatches']);
-        }
-
-        if (isCorrect) {
-          _score++;
-        }
-        
-        if (_answeredQuestions.every((answered) => answered)) {
-          _exerciseCompleted = true;
-          _recordExerciseResults();
-        }
-      });
-    }
-  }
-
-  bool _checkMatchingAnswer(Map<int, int> userMatches, List<int> correctMatches) {
-    if (userMatches.length != correctMatches.length) return false;
-    
-    for (int i = 0; i < correctMatches.length; i++) {
-      if (userMatches[i] != correctMatches[i]) return false;
-    }
-    return true;
-  }
-
-  bool _checkDragDropMatch(List<String> userMatches, List<int> correctMatches) {
-    if (userMatches.length != correctMatches.length) return false;
-    return true;
-  }
-
-  void _recordExerciseResults() {
-    final percentage = (_score / _questions.length * 100).toInt();
-    
-    progressManager.recordExerciseScore(
-      widget.lessonName,
-      widget.language,
-      widget.subLessonIndex,
-      'Percentage Comprehensive Exercise',
-      _score,
-      _questions.length,
-      _score,
-      percentage.toDouble(),
-    );
-  }
-
-  void _nextQuestion() {
-    if (_currentQuestion < _questions.length - 1) {
-      setState(() {
-        _currentQuestion++;
-        _initQuestion();
-      });
-    }
-  }
-
-  void _previousQuestion() {
-    if (_currentQuestion > 0) {
-      setState(() {
-        _currentQuestion--;
-        _initQuestion();
-      });
-    }
-  }
-
-  void _restartExercise() {
+    if (_answeredQuestions[_currentQuestion]) return;
     setState(() {
-      _currentQuestion = 0;
-      _score = 0;
-      _exerciseCompleted = false;
-      _userAnswers = List.filled(_questions.length, null);
-      _answeredQuestions = List.filled(_questions.length, false);
-      _matchingSelections.clear();
-      _matchFilledBlanks.clear();
-      _initQuestion();
+      _answeredQuestions[_currentQuestion] = true; _userAnswers[_currentQuestion] = answer;
+      final q = _questions[_currentQuestion]; bool isCorrect = false;
+      if (q['type'] == 'multiple_choice') isCorrect = answer == q['correctAnswer'];
+      else if (q['type'] == 'matching') isCorrect = _checkMatching(answer as Map<int, int>, q['correctMatches']);
+      else if (q['type'] == 'drag_drop_match') isCorrect = _checkDDMatch(answer as List<String>, q['correctMatches'], q['rightItems']);
+      if (isCorrect) _score++;
+      if (_answeredQuestions.every((a) => a)) { _exerciseCompleted = true; _recordResults(); }
     });
   }
 
-  void _submitInteractiveAnswer(Map<String, dynamic> question) {
-    dynamic answer;
-    
-    if (question['type'] == 'matching') {
-      final matches = _matchingSelections[_currentQuestion];
-      if (matches == null || matches.length != (question['leftItems'] as List).length) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all matches first'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      answer = matches;
-    } 
-    else if (question['type'] == 'drag_drop_match') {
-      if (!_isMatchComplete(_currentQuestion)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all matches'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      final matches = _matchFilledBlanks[_currentQuestion]!;
-      final List<String> answerList = [];
-      for (int i = 0; i < (question['leftItems'] as List).length; i++) {
-        answerList.add(matches[i] ?? '');
-      }
-      answer = answerList;
-    }
-    
-    _answerQuestion(answer);
+  bool _checkMatching(Map<int, int> user, List<int> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
+    return true;
   }
 
-  bool _isAnswerCorrect(Map<String, dynamic> question) {
-    final answer = _userAnswers[_currentQuestion];
-    if (answer == null) return false;
-    
-    if (question['type'] == 'multiple_choice') {
-      return answer == question['correctAnswer'];
-    } else if (question['type'] == 'matching') {
-      return _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
+  // ✅ FIXED
+  bool _checkDDMatch(List<String> userMatches, List<int> correctMatches, List rightItems) {
+    if (userMatches.length != correctMatches.length) return false;
+    for (int i = 0; i < correctMatches.length; i++) {
+      final expected = rightItems[correctMatches[i]] as String;
+      if (userMatches[i] != expected) return false;
     }
     return true;
   }
 
-  String _getCategoryName(String category) {
-    switch (category) {
-      case 'describing':
-        return 'DESCRIBING PERCENTAGE';
-      case 'fraction_to_percent':
-        return 'FRACTION → PERCENTAGE';
-      case 'percent_to_fraction':
-        return 'PERCENTAGE → FRACTION';
-      case 'mixed':
-        return 'MIXED PRACTICE';
-      default:
-        return 'PERCENTAGE';
+  void _recordResults() {
+    final pct = (_score / _questions.length * 100).toInt();
+    progressManager.recordExerciseScore(widget.lessonName, widget.language, widget.subLessonIndex, 'Percentage Comprehensive Exercise', _score, _questions.length, _score, pct.toDouble());
+  }
+
+  void _nextQuestion() { if (_currentQuestion < _questions.length - 1) setState(() { _currentQuestion++; _initQuestion(); }); }
+  void _previousQuestion() { if (_currentQuestion > 0) setState(() { _currentQuestion--; _initQuestion(); }); }
+  void _restartExercise() { setState(() { _currentQuestion = 0; _score = 0; _exerciseCompleted = false; _userAnswers = List.filled(_questions.length, null); _answeredQuestions = List.filled(_questions.length, false); _matchingSelections.clear(); _matchFilledBlanks.clear(); _initQuestion(); }); }
+
+  void _submitInteractiveAnswer(Map<String, dynamic> q) {
+    if (q['type'] == 'matching') {
+      if (!_isMatchingComplete(_currentQuestion)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all matches first'), duration: Duration(seconds: 2))); return; }
+      _answerQuestion(Map<int, int>.from(_matchingSelections[_currentQuestion]!));
+    } else if (q['type'] == 'drag_drop_match') {
+      if (!_isMatchComplete(_currentQuestion)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all matches'), duration: Duration(seconds: 2))); return; }
+      final m = _matchFilledBlanks[_currentQuestion]!;
+      final List<String> ans = [];
+      for (int i = 0; i < (q['leftItems'] as List).length; i++) ans.add(m[i] ?? '');
+      _answerQuestion(ans);
     }
   }
 
-  Color _getCategoryColor(String category) {
-    switch (category) {
-      case 'describing':
-        return Colors.blue;
-      case 'fraction_to_percent':
-        return Colors.green;
-      case 'percent_to_fraction':
-        return Colors.purple;
-      case 'mixed':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
+  bool _isAnswerCorrect(Map<String, dynamic> q) {
+    final a = _userAnswers[_currentQuestion]; if (a == null) return false;
+    if (q['type'] == 'multiple_choice') return a == q['correctAnswer'];
+    if (q['type'] == 'matching') return _checkMatching(a as Map<int, int>, q['correctMatches']);
+    return true;
   }
 
-  Color _getTypeColor(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return Colors.blue;
-      case 'matching':
-        return Colors.purple;
-      case 'drag_drop_match':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getTypeName(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return 'MULTIPLE CHOICE';
-      case 'matching':
-        return 'MATCHING TYPE';
-      case 'drag_drop_match':
-        return 'DRAG & DROP';
-      default:
-        return '';
-    }
-  }
+  String _getCatName(String c) { switch(c) { case 'describing': return 'DESCRIBING'; case 'fraction_to_percent': return 'FRACTION→%'; case 'percent_to_fraction': return '%→FRACTION'; default: return 'MIXED'; } }
+  Color _getCatColor(String c) { switch(c) { case 'describing': return Colors.blue; case 'fraction_to_percent': return Colors.green; case 'percent_to_fraction': return Colors.purple; default: return Colors.orange; } }
+  Color _getTypeColor(String t) { if (t == 'multiple_choice') return Colors.blue; if (t == 'matching') return Colors.purple; return Colors.orange; }
+  String _getTypeName(String t) { if (t == 'multiple_choice') return 'MULTIPLE CHOICE'; if (t == 'matching') return 'MATCHING TYPE'; return 'DRAG & DROP'; }
 
   @override
   Widget build(BuildContext context) {
-    if (_exerciseCompleted) {
-      return _buildResultsScreen();
-    }
-
-    final currentQuestion = _questions[_currentQuestion];
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Percentage Exercise',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: screenWidth * 0.04,
-            vertical: screenHeight * 0.02,
-          ),
-          child: Column(
-            children: [
-              // Progress header
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _getCategoryColor(currentQuestion['category']).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: _getCategoryColor(currentQuestion['category']), width: 1),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Question ${_currentQuestion + 1}/${_questions.length}',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.045,
-                            fontWeight: FontWeight.bold,
-                            color: _getCategoryColor(currentQuestion['category']),
-                          ),
-                        ),
-                        Text(
-                          _getCategoryName(currentQuestion['category']),
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            color: _getCategoryColor(currentQuestion['category']).withOpacity(0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.amber, width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.star, color: Colors.amber, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$_score',
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.04,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Type badge
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getTypeColor(currentQuestion['type']),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _getTypeName(currentQuestion['type']),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // Question card
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(screenWidth * 0.05),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.black, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color.fromRGBO(0, 0, 0, 0.15),
-                      blurRadius: 8,
-                      offset: const Offset(4, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Question text
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.02),
-                      child: Text(
-                        currentQuestion['question'] as String,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.045,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-
-                    const SizedBox(height: 15),
-
-                    // Question content based on type
-                    if (currentQuestion['type'] == 'multiple_choice')
-                      _buildMultipleChoice(currentQuestion, screenWidth)
-                    else if (currentQuestion['type'] == 'matching')
-                      _buildMatchingType(currentQuestion, screenWidth)
-                    else if (currentQuestion['type'] == 'drag_drop_match' && _dragItemsInitialized)
-                      _buildDragDropMatch(currentQuestion, screenWidth),
-
-                    const SizedBox(height: 15),
-
-                    // Submit button for interactive types
-                    if (!_answeredQuestions[_currentQuestion] && 
-                        (currentQuestion['type'] == 'matching' || 
-                         currentQuestion['type'] == 'drag_drop_match'))
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(180, 40),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                        ),
-                        onPressed: () => _submitInteractiveAnswer(currentQuestion),
-                        child: const Text('Submit Answer', style: TextStyle(fontSize: 14)),
-                      ),
-
-                    const SizedBox(height: 15),
-
-                    // Explanation
-                    if (_answeredQuestions[_currentQuestion])
-                      Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.all(screenWidth * 0.03),
-                        decoration: BoxDecoration(
-                          color: _isAnswerCorrect(currentQuestion) ? Colors.green[50] : Colors.red[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _isAnswerCorrect(currentQuestion) ? Colors.green : Colors.red,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          _isAnswerCorrect(currentQuestion)
-                              ? '✓ Correct! ${currentQuestion['explanation'] as String}'
-                              : '✗ ${currentQuestion['explanation'] as String}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: screenWidth > 600 ? 15 : 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 15),
-
-              // Navigation buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _currentQuestion > 0 ? _previousQuestion : null,
-                      child: const Text('Previous', style: TextStyle(fontSize: 14)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null,
-                      child: Text(
-                        _currentQuestion == _questions.length - 1 ? 'Finish' : 'Next',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    if (_exerciseCompleted) return _buildResultsScreen();
+    final q = _questions[_currentQuestion]; final sw = MediaQuery.of(context).size.width;
+    return Scaffold(backgroundColor: Colors.white,
+      appBar: AppBar(backgroundColor: Colors.white, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)), title: const Text('Percentage Exercise', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)), centerTitle: true, elevation: 0),
+      body: SafeArea(child: SingleChildScrollView(padding: EdgeInsets.symmetric(horizontal: sw * 0.04, vertical: 16), child: Column(children: [
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: _getCatColor(q['category']).withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: _getCatColor(q['category']), width: 1)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Question ${_currentQuestion + 1}/${_questions.length}', style: TextStyle(fontSize: sw * 0.045, fontWeight: FontWeight.bold, color: _getCatColor(q['category']))), Text(_getCatName(q['category']), style: TextStyle(fontSize: sw * 0.035, color: _getCatColor(q['category']).withOpacity(0.8)))]),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber)), child: Row(children: [const Icon(Icons.star, color: Colors.amber, size: 16), const SizedBox(width: 4), Text('$_score', style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold, color: Colors.amber[800]))])),
+          ])),
+        const SizedBox(height: 12),
+        Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: _getTypeColor(q['type']), borderRadius: BorderRadius.circular(20)), child: Text(_getTypeName(q['type']), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+        const SizedBox(height: 12),
+        Container(width: double.infinity, padding: EdgeInsets.all(sw * 0.05),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.black, width: 2), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8, offset: const Offset(4, 4))]),
+          child: Column(children: [
+            Text(q['question'] as String, textAlign: TextAlign.center, style: TextStyle(fontSize: sw * 0.045, fontWeight: FontWeight.bold), maxLines: 3, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 15),
+            if (q['type'] == 'multiple_choice') _buildMC(q, sw)
+            else if (q['type'] == 'matching') _buildMatching(q, sw)
+            else if (q['type'] == 'drag_drop_match' && _dragItemsInitialized) _buildDDMatch(q, sw),
+            const SizedBox(height: 15),
+            if (!_answeredQuestions[_currentQuestion] && (q['type'] == 'matching' || q['type'] == 'drag_drop_match'))
+              ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, minimumSize: const Size(180, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))), onPressed: () => _submitInteractiveAnswer(q), child: const Text('Submit Answer', style: TextStyle(fontSize: 14))),
+            const SizedBox(height: 15),
+            if (_answeredQuestions[_currentQuestion])
+              Container(width: double.infinity, padding: EdgeInsets.all(sw * 0.03), decoration: BoxDecoration(color: _isAnswerCorrect(q) ? Colors.green[50] : Colors.red[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: _isAnswerCorrect(q) ? Colors.green : Colors.red, width: 1.5)),
+                child: Text(_isAnswerCorrect(q) ? '✓ Correct! ${q['explanation']}' : '✗ ${q['explanation']}', textAlign: TextAlign.center, style: TextStyle(fontSize: sw > 600 ? 15 : 13, fontWeight: FontWeight.w500))),
+          ])),
+        const SizedBox(height: 15),
+        Row(children: [
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1), onPressed: _currentQuestion > 0 ? _previousQuestion : null, child: const Text('Previous', style: TextStyle(fontSize: 14)))),
+          const SizedBox(width: 10),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1), onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null, child: Text(_currentQuestion == _questions.length - 1 ? 'Finish' : 'Next', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)))),
+        ]),
+      ]))));
   }
 
-  // ===== MULTIPLE CHOICE BUILDER =====
-  Widget _buildMultipleChoice(Map<String, dynamic> question, double screenWidth) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: screenWidth > 600 ? 2.2 : 2.0,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: (question['options'] as List).length,
-      itemBuilder: (context, index) {
-        final isAnswered = _answeredQuestions[_currentQuestion];
-        final isSelected = _userAnswers[_currentQuestion] == index;
-        final isCorrect = index == (question['correctAnswer'] as int);
-
-        Color buttonColor = Colors.white;
-        if (isAnswered) {
-          if (isSelected && isCorrect) {
-            buttonColor = Colors.green;
-          } else if (isSelected && !isCorrect) {
-            buttonColor = Colors.red;
-          } else if (isCorrect) {
-            buttonColor = Colors.green[100]!;
-          }
-        }
-
-        return GestureDetector(
-          onTap: isAnswered ? null : () => _answerQuestion(index),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: buttonColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isSelected ? Colors.black : Colors.grey[300]!,
-                width: isSelected ? 2 : 1,
-              ),
-              boxShadow: [
-                if (!isAnswered)
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
-              ],
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Text(
-                  (question['options'] as List)[index] as String,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: screenWidth > 600 ? 18 : 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+  Widget _buildMC(Map<String, dynamic> q, double sw) {
+    return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: sw > 600 ? 2.2 : 2.0, crossAxisSpacing: 8, mainAxisSpacing: 8),
+      itemCount: (q['options'] as List).length,
+      itemBuilder: (context, i) {
+        final isAnswered = _answeredQuestions[_currentQuestion]; final isSel = _userAnswers[_currentQuestion] == i; final isCorrect = i == (q['correctAnswer'] as int);
+        Color c = Colors.white;
+        if (isAnswered) { if (isSel && isCorrect) c = Colors.green; else if (isSel) c = Colors.red; else if (isCorrect) c = Colors.green[100]!; }
+        return GestureDetector(onTap: isAnswered ? null : () => _answerQuestion(i),
+          child: AnimatedContainer(duration: const Duration(milliseconds: 200), decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(10), border: Border.all(color: isSel ? Colors.black : Colors.grey[300]!, width: isSel ? 2 : 1)),
+            child: Center(child: Padding(padding: const EdgeInsets.all(6), child: Text((q['options'] as List)[i] as String, textAlign: TextAlign.center, style: TextStyle(fontSize: sw > 600 ? 18 : 16, fontWeight: FontWeight.bold))))));
+      });
   }
 
-  // ===== MATCHING TYPE BUILDER =====
-  Widget _buildMatchingType(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    final rightItems = question['rightItems'] as List;
-    
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.purple[200]!, width: 1.5),
-      ),
-      child: Column(
-        children: [
-          // Headers
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.purple[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Fraction/Description',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.purple[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Percentage',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
+  Widget _buildMatching(Map<String, dynamic> q, double sw) {
+    final left = q['leftItems'] as List; final right = q['rightItems'] as List;
+    return Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.purple[200]!, width: 1.5)),
+      child: Column(children: [
+        Row(children: [
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Fraction/Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center))),
+          const SizedBox(width: 8),
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Percentage', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center))),
+        ]),
+        const SizedBox(height: 8),
+        ...List.generate(left.length, (i) => Padding(padding: const EdgeInsets.only(bottom: 6),
+          child: Row(children: [
+            Expanded(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey[300]!)), child: Text(left[i] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)))),
+            const SizedBox(width: 8),
+            Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 6), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.purple[300]!)),
+              child: DropdownButton<int>(value: _matchingSelections[_currentQuestion]?[i], hint: const Text('Select', style: TextStyle(fontSize: 11)), isExpanded: true, underline: const SizedBox(), iconSize: 18,
+                items: List.generate(right.length, (j) => DropdownMenuItem<int>(value: j, child: Text(right[j] as String, style: const TextStyle(fontSize: 11)))),
+                onChanged: _answeredQuestions[_currentQuestion] ? null : (v) => _updateMatchingSelection(i, v!)))),
+          ]))),
+      ]));
+  }
+
+  Widget _buildDDMatch(Map<String, dynamic> q, double sw) {
+    final left = q['leftItems'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange, width: 1.5)),
+        child: Column(children: List.generate(left.length, (i) {
+          final fv = _matchFilledBlanks[_currentQuestion]?[i];
+          return Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [
+            Expanded(flex: 2, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.orange[300]!)), child: Text(left[i] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)))),
+            const SizedBox(width: 8),
+            Expanded(child: DragTarget<String>(
+              builder: (ctx, cd, rd) => Container(height: 40, decoration: BoxDecoration(color: fv == null ? Colors.orange[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.orange : Colors.orange[700]!, width: 1.5)), child: Center(child: Text(fv ?? 'Drop', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: fv == null ? Colors.grey : Colors.black)))),
+              onWillAccept: (d) => _matchFilledBlanks[_currentQuestion]?[i] == null,
+              onAccept: (d) { _updateMatchBlank(i, d); ss(() {}); })),
+          ]));
+        }))),
+      const SizedBox(height: 12),
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag answers:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           const SizedBox(height: 8),
-          
-          // Matching rows
-          ...List.generate(leftItems.length, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  // Left item
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Text(
-                        leftItems[index] as String,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 8),
-                  
-                  // Right dropdown
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.purple[300]!),
-                      ),
-                      child: DropdownButton<int>(
-                        value: _matchingSelections[_currentQuestion]?[index],
-                        hint: const Text('Select', style: TextStyle(fontSize: 11)),
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconSize: 18,
-                        items: List.generate(rightItems.length, (i) {
-                          return DropdownMenuItem<int>(
-                            value: i,
-                            child: Text(rightItems[i] as String, style: const TextStyle(fontSize: 11)),
-                          );
-                        }),
-                        onChanged: _answeredQuestions[_currentQuestion] 
-                            ? null 
-                            : (value) {
-                                _updateMatchingSelection(index, value!);
-                              },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  // ===== DRAG AND DROP MATCH BUILDER =====
-  Widget _buildDragDropMatch(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Left items with drop targets
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.orange, width: 1.5),
-              ),
-              child: Column(
-                children: List.generate(leftItems.length, (index) {
-                  final filledValue = _matchFilledBlanks[_currentQuestion]?[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        // Left item
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.orange[300]!),
-                            ),
-                            child: Text(
-                              leftItems[index] as String,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(width: 8),
-                        
-                        // Drop target for match
-                        Expanded(
-                          child: DragTarget<String>(
-                            builder: (context, candidateData, rejectedData) {
-                              return Container(
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: filledValue == null
-                                      ? Colors.orange[100]
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: filledValue == null
-                                        ? Colors.orange
-                                        : Colors.orange[700]!,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    filledValue ?? 'Drop',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: filledValue == null ? Colors.grey : Colors.black,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                            onWillAccept: (data) {
-                              return _matchFilledBlanks[_currentQuestion]?[index] == null;
-                            },
-                            onAccept: (data) {
-                              _updateMatchBlank(index, data);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Drag items
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag answers:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _dragItems.map((item) {
-                      return Draggable<String>(
-                        data: item,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              item,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.red, width: 1.5),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+          Wrap(spacing: 6, runSpacing: 6, children: _dragItems.map((item) => Draggable<String>(data: item,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.red, width: 1.5)), child: Text(item, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))))).toList()),
+        ])),
+    ]));
   }
 
   Widget _buildResultsScreen() {
-    final percentage = (_score / _questions.length * 100).round();
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    String message;
-    String emoji;
-    Color color;
-
-    if (percentage == 100) {
-      message = 'Perfect Score!';
-      emoji = '🏆';
-      color = Colors.amber;
-    } else if (percentage >= 80) {
-      message = 'Great Job!';
-      emoji = '🎉';
-      color = Colors.green;
-    } else if (percentage >= 60) {
-      message = 'Good Try!';
-      emoji = '👍';
-      color = Colors.blue;
-    } else {
-      message = 'Keep Practicing!';
-      emoji = '💪';
-      color = Colors.orange;
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Exercise Complete'),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                emoji,
-                style: const TextStyle(fontSize: 70),
-              ),
-              const SizedBox(height: 15),
-              Text(
-                message,
-                style: TextStyle(
-                  fontSize: screenWidth > 600 ? 30 : 26,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 25),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: color, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Your Score',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$_score/${_questions.length}',
-                      style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$percentage%',
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: _restartExercise,
-                      child: const Text('Try Again'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Back to Lessons'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    final pct = (_score / _questions.length * 100).round(); final sw = MediaQuery.of(context).size.width;
+    String msg; String emoji; Color color;
+    if (pct == 100) { msg = 'Perfect Score!'; emoji = '🏆'; color = Colors.amber; } else if (pct >= 80) { msg = 'Great Job!'; emoji = '🎉'; color = Colors.green; } else if (pct >= 60) { msg = 'Good Try!'; emoji = '👍'; color = Colors.blue; } else { msg = 'Keep Practicing!'; emoji = '💪'; color = Colors.orange; }
+    return Scaffold(backgroundColor: Colors.white, appBar: AppBar(backgroundColor: Colors.white, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)), title: const Text('Exercise Complete'), centerTitle: true, elevation: 0),
+      body: Center(child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Text(emoji, style: const TextStyle(fontSize: 70)), const SizedBox(height: 15),
+        Text(msg, style: TextStyle(fontSize: sw > 600 ? 30 : 26, fontWeight: FontWeight.bold, color: color)), const SizedBox(height: 25),
+        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: color, width: 2)), child: Column(children: [const Text('Your Score', style: TextStyle(fontSize: 16)), const SizedBox(height: 8), Text('$_score/${_questions.length}', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text('$pct%', style: const TextStyle(fontSize: 24))])),
+        const SizedBox(height: 30),
+        Row(children: [
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 14)), onPressed: _restartExercise, child: const Text('Try Again'))),
+          const SizedBox(width: 10),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 14)), onPressed: () => Navigator.pop(context), child: const Text('Back to Lessons'))),
+        ]),
+      ]))));
   }
 }
+
 
 // ============ UPDATED ALGEBRA LESSONS SCREEN (4 subtopics only) ============
 class AlgebraLessonsScreen extends StatefulWidget {
@@ -28198,12 +22383,7 @@ class AlgebraExerciseScreen extends StatefulWidget {
   final String language;
   final int subLessonIndex;
 
-  const AlgebraExerciseScreen({
-    super.key,
-    required this.lessonName,
-    required this.language,
-    required this.subLessonIndex,
-  });
+  const AlgebraExerciseScreen({super.key, required this.lessonName, required this.language, required this.subLessonIndex});
 
   @override
   State<AlgebraExerciseScreen> createState() => _AlgebraExerciseScreenState();
@@ -28215,1490 +22395,321 @@ class _AlgebraExerciseScreenState extends State<AlgebraExerciseScreen> {
   bool _exerciseCompleted = false;
   List<dynamic> _userAnswers = List.filled(15, null);
   List<bool> _answeredQuestions = List.filled(15, false);
-  
-  // For drag and drop
+
   List<String> _dragItems = [];
-  List<String> _dragTargets = [];
-  
-  // For matching type
   Map<int, Map<int, int>> _matchingSelections = {};
-  
-  // For drag drop match
   Map<int, Map<int, String>> _matchFilledBlanks = {};
-  
-  // For drag drop sequence
   Map<int, Map<int, String>> _sequenceFilledBlanks = {};
-  
-  // Track if drag items are initialized
   bool _dragItemsInitialized = false;
 
   final List<Map<String, dynamic>> _questions = [
-    // ===== ADDITION - MISSING VALUE (4 items) =====
-    {
-      'id': 1,
-      'type': 'multiple_choice',
-      'operation': 'addition',
-      'question': 'Find the missing number: 5 + ___ = 12',
-      'correctAnswer': 2, // 7
-      'options': ['5', '6', '7', '8'],
-      'explanation': '5 + 7 = 12',
-    },
-    {
-      'id': 2,
-      'type': 'multiple_choice',
-      'operation': 'addition',
-      'question': 'Find the missing number: ___ + 8 = 15',
-      'correctAnswer': 1, // 7
-      'options': ['6', '7', '8', '9'],
-      'explanation': '7 + 8 = 15',
-    },
-    {
-      'id': 3,
-      'type': 'multiple_choice',
-      'operation': 'addition',
-      'question': 'Find the missing number: 9 + ___ = 16',
-      'correctAnswer': 1, // 7
-      'options': ['6', '7', '8', '9'],
-      'explanation': '9 + 7 = 16',
-    },
-    {
-      'id': 4,
-      'type': 'drag_drop_match',
-      'operation': 'addition',
-      'question': 'Match each addition equation with the correct missing number:',
-      'leftItems': ['6 + ? = 11', '? + 4 = 12', '8 + ? = 15', '? + 7 = 14'],
-      'rightItems': ['5', '8', '7', '7'],
-      'correctMatches': [0, 1, 2, 2], // 8+7=15 and ?+7=14 both have 7
-      'explanation': '6+5=11, 8+4=12, 8+7=15, 7+7=14',
-    },
-
-    // ===== SUBTRACTION - MISSING VALUE (4 items) =====
-    {
-      'id': 5,
-      'type': 'multiple_choice',
-      'operation': 'subtraction',
-      'question': 'Find the missing number: 15 - ___ = 7',
-      'correctAnswer': 1, // 8
-      'options': ['7', '8', '9', '10'],
-      'explanation': '15 - 8 = 7',
-    },
-    {
-      'id': 6,
-      'type': 'multiple_choice',
-      'operation': 'subtraction',
-      'question': 'Find the missing number: ___ - 9 = 6',
-      'correctAnswer': 2, // 15
-      'options': ['12', '14', '15', '16'],
-      'explanation': '15 - 9 = 6',
-    },
-    {
-      'id': 7,
-      'type': 'multiple_choice',
-      'operation': 'subtraction',
-      'question': 'Find the missing number: 20 - ___ = 11',
-      'correctAnswer': 1, // 9
-      'options': ['8', '9', '10', '11'],
-      'explanation': '20 - 9 = 11',
-    },
-    {
-      'id': 8,
-      'type': 'matching',
-      'operation': 'subtraction',
-      'question': 'Match each subtraction equation with the correct missing number:',
-      'leftItems': ['18 - ? = 9', '? - 5 = 12', '14 - ? = 6', '? - 8 = 7'],
-      'rightItems': ['9', '17', '8', '15'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': '18-9=9, 17-5=12, 14-8=6, 15-8=7',
-    },
-
-    // ===== MULTIPLICATION - MISSING VALUE (4 items) =====
-    {
-      'id': 9,
-      'type': 'multiple_choice',
-      'operation': 'multiplication',
-      'question': 'Find the missing number: 6 × ___ = 42',
-      'correctAnswer': 1, // 7
-      'options': ['6', '7', '8', '9'],
-      'explanation': '6 × 7 = 42',
-    },
-    {
-      'id': 10,
-      'type': 'multiple_choice',
-      'operation': 'multiplication',
-      'question': 'Find the missing number: ___ × 8 = 56',
-      'correctAnswer': 1, // 7
-      'options': ['6', '7', '8', '9'],
-      'explanation': '7 × 8 = 56',
-    },
-    {
-      'id': 11,
-      'type': 'multiple_choice',
-      'operation': 'multiplication',
-      'question': 'Find the missing number: 9 × ___ = 63',
-      'correctAnswer': 1, // 7
-      'options': ['6', '7', '8', '9'],
-      'explanation': '9 × 7 = 63',
-    },
-    {
-      'id': 12,
-      'type': 'drag_drop_match',
-      'operation': 'multiplication',
-      'question': 'Match each multiplication equation with the correct missing number:',
-      'leftItems': ['5 × ? = 35', '? × 6 = 42', '7 × ? = 49', '? × 9 = 72'],
-      'rightItems': ['7', '7', '7', '8'],
-      'correctMatches': [0, 1, 2, 3],
-      'explanation': '5×7=35, 7×6=42, 7×7=49, 8×9=72',
-    },
-
-    // ===== DIVISION - MISSING VALUE (3 items) =====
-    {
-      'id': 13,
-      'type': 'multiple_choice',
-      'operation': 'division',
-      'question': 'Find the missing number: 24 ÷ ___ = 6',
-      'correctAnswer': 0, // 4
-      'options': ['4', '6', '8', '12'],
-      'explanation': '24 ÷ 4 = 6',
-    },
-    {
-      'id': 14,
-      'type': 'multiple_choice',
-      'operation': 'division',
-      'question': 'Find the missing number: ___ ÷ 5 = 9',
-      'correctAnswer': 3, // 45
-      'options': ['35', '40', '44', '45'],
-      'explanation': '45 ÷ 5 = 9',
-    },
-    {
-      'id': 15,
-      'type': 'drag_drop_sequence',
-      'operation': 'division',
-      'question': 'Complete the division equations with the correct numbers:',
+    // ADDITION
+    {'id': 1, 'type': 'multiple_choice', 'operation': 'addition', 'question': 'Find the missing number: 5 + ___ = 12', 'correctAnswer': 2, 'options': ['5', '6', '7', '8'], 'explanation': '5 + 7 = 12'},
+    {'id': 2, 'type': 'multiple_choice', 'operation': 'addition', 'question': 'Find the missing number: ___ + 8 = 15', 'correctAnswer': 1, 'options': ['6', '7', '8', '9'], 'explanation': '7 + 8 = 15'},
+    {'id': 3, 'type': 'multiple_choice', 'operation': 'addition', 'question': 'Find the missing number: 9 + ___ = 16', 'correctAnswer': 1, 'options': ['6', '7', '8', '9'], 'explanation': '9 + 7 = 16'},
+    {'id': 4, 'type': 'drag_drop_match', 'operation': 'addition', 'question': 'Match each addition equation with the correct missing number:',
+      'leftItems': ['6 + ? = 11', '? + 4 = 12', '8 + ? = 15', '? + 7 = 14'], 'rightItems': ['5', '8', '7', '7'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '6+5=11, 8+4=12, 8+7=15, 7+7=14'},
+    // SUBTRACTION
+    {'id': 5, 'type': 'multiple_choice', 'operation': 'subtraction', 'question': 'Find the missing number: 15 - ___ = 7', 'correctAnswer': 1, 'options': ['7', '8', '9', '10'], 'explanation': '15 - 8 = 7'},
+    {'id': 6, 'type': 'multiple_choice', 'operation': 'subtraction', 'question': 'Find the missing number: ___ - 9 = 6', 'correctAnswer': 2, 'options': ['12', '14', '15', '16'], 'explanation': '15 - 9 = 6'},
+    {'id': 7, 'type': 'multiple_choice', 'operation': 'subtraction', 'question': 'Find the missing number: 20 - ___ = 11', 'correctAnswer': 1, 'options': ['8', '9', '10', '11'], 'explanation': '20 - 9 = 11'},
+    {'id': 8, 'type': 'matching', 'operation': 'subtraction', 'question': 'Match each subtraction equation with the correct missing number:',
+      'leftItems': ['18 - ? = 9', '? - 5 = 12', '14 - ? = 6', '? - 8 = 7'], 'rightItems': ['9', '17', '8', '15'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '18-9=9, 17-5=12, 14-8=6, 15-8=7'},
+    // MULTIPLICATION
+    {'id': 9, 'type': 'multiple_choice', 'operation': 'multiplication', 'question': 'Find the missing number: 6 × ___ = 42', 'correctAnswer': 1, 'options': ['6', '7', '8', '9'], 'explanation': '6 × 7 = 42'},
+    {'id': 10, 'type': 'multiple_choice', 'operation': 'multiplication', 'question': 'Find the missing number: ___ × 8 = 56', 'correctAnswer': 1, 'options': ['6', '7', '8', '9'], 'explanation': '7 × 8 = 56'},
+    {'id': 11, 'type': 'multiple_choice', 'operation': 'multiplication', 'question': 'Find the missing number: 9 × ___ = 63', 'correctAnswer': 1, 'options': ['6', '7', '8', '9'], 'explanation': '9 × 7 = 63'},
+    {'id': 12, 'type': 'drag_drop_match', 'operation': 'multiplication', 'question': 'Match each multiplication equation with the correct missing number:',
+      'leftItems': ['5 × ? = 35', '? × 6 = 42', '7 × ? = 49', '? × 9 = 72'], 'rightItems': ['7', '7', '7', '8'],
+      'correctMatches': [0, 1, 2, 3], 'explanation': '5×7=35, 7×6=42, 7×7=49, 8×9=72'},
+    // DIVISION
+    {'id': 13, 'type': 'multiple_choice', 'operation': 'division', 'question': 'Find the missing number: 24 ÷ ___ = 6', 'correctAnswer': 0, 'options': ['4', '5', '6', '7'], 'explanation': '24 ÷ 4 = 6'},
+    {'id': 14, 'type': 'multiple_choice', 'operation': 'division', 'question': 'Find the missing number: ___ ÷ 5 = 9', 'correctAnswer': 3, 'options': ['35', '40', '44', '45'], 'explanation': '45 ÷ 5 = 9'},
+    {'id': 15, 'type': 'drag_drop_sequence', 'operation': 'division', 'question': 'Complete the division equations with the correct numbers:',
       'sequence': ['36 ÷ ? = 9', '? ÷ 8 = 7', '42 ÷ ? = 6', '? ÷ 4 = 8'],
       'availableNumbers': ['4', '56', '7', '32', '9'],
       'correctAnswer': ['4', '56', '7', '32'],
       'blankPositions': [0, 1, 2, 3],
-      'explanation': '36÷4=9, 56÷8=7, 42÷7=6, 32÷4=8',
-    },
+      'explanation': '36÷4=9, 56÷8=7, 42÷7=6, 32÷4=8'},
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _initQuestion();
-  }
+  void initState() { super.initState(); _initQuestion(); }
 
   void _initQuestion() {
     _dragItemsInitialized = false;
-    _initDragItems();
-    _initMatchingSelections();
-    _initMatchBlanks();
-    _initSequenceBlanks();
-  }
-
-  void _initDragItems() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_match') {
-      if (question.containsKey('rightItems')) {
-        _dragItems = List<String>.from(question['rightItems'] as List);
-        _dragItems.shuffle();
-        _dragTargets = List.filled((question['leftItems'] as List).length, '');
-      }
-    } else if (question['type'] == 'drag_drop_sequence') {
-      _dragItems = List<String>.from(question['availableNumbers'] as List);
+    final q = _questions[_currentQuestion];
+    if (q['type'] == 'drag_drop_match') {
+      _dragItems = List<String>.from(q['rightItems'] as List);
       _dragItems.shuffle();
-      _dragTargets = List.filled((question['correctAnswer'] as List).length, '');
+      _matchFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'drag_drop_sequence') {
+      _dragItems = List<String>.from(q['availableNumbers'] as List);
+      _dragItems.shuffle();
+      _sequenceFilledBlanks[_currentQuestion] = {};
+    } else if (q['type'] == 'matching') {
+      _matchingSelections[_currentQuestion] = {};
     }
     _dragItemsInitialized = true;
   }
 
-  void _initMatchingSelections() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'matching') {
-      _matchingSelections[_currentQuestion] = {};
-    }
-  }
+  void _updateMatchingSelection(int li, int ri) { setState(() { _matchingSelections[_currentQuestion] ??= {}; _matchingSelections[_currentQuestion]![li] = ri; }); }
+  void _updateMatchBlank(int i, String v) { setState(() { _matchFilledBlanks[_currentQuestion] ??= {}; _matchFilledBlanks[_currentQuestion]![i] = v; _dragItems.remove(v); }); }
+  void _updateSequenceBlank(int pos, String v) { setState(() { _sequenceFilledBlanks[_currentQuestion] ??= {}; _sequenceFilledBlanks[_currentQuestion]![pos] = v; _dragItems.remove(v); }); }
 
-  void _initMatchBlanks() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_match') {
-      _matchFilledBlanks[_currentQuestion] = {};
-    }
-  }
-
-  void _initSequenceBlanks() {
-    final question = _questions[_currentQuestion];
-    if (question['type'] == 'drag_drop_sequence') {
-      _sequenceFilledBlanks[_currentQuestion] = {};
-    }
-  }
-
-  void _updateMatchingSelection(int leftIndex, int rightIndex) {
-    setState(() {
-      if (!_matchingSelections.containsKey(_currentQuestion)) {
-        _matchingSelections[_currentQuestion] = {};
-      }
-      _matchingSelections[_currentQuestion]![leftIndex] = rightIndex;
-    });
-  }
-
-  void _updateMatchBlank(int index, String value) {
-    setState(() {
-      if (!_matchFilledBlanks.containsKey(_currentQuestion)) {
-        _matchFilledBlanks[_currentQuestion] = {};
-      }
-      _matchFilledBlanks[_currentQuestion]![index] = value;
-      _dragItems.remove(value);
-    });
-  }
-
-  void _updateSequenceBlank(int position, String number) {
-    setState(() {
-      if (!_sequenceFilledBlanks.containsKey(_currentQuestion)) {
-        _sequenceFilledBlanks[_currentQuestion] = {};
-      }
-      _sequenceFilledBlanks[_currentQuestion]![position] = number;
-      _dragItems.remove(number);
-    });
-  }
-
-  bool _isMatchingComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'matching') return true;
-    
-    final leftItems = question['leftItems'] as List;
-    final selections = _matchingSelections[questionIndex];
-    
-    if (selections == null) return false;
-    return selections.length == leftItems.length;
-  }
-
-  bool _isMatchComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'drag_drop_match') return true;
-    
-    final leftItems = question['leftItems'] as List;
-    final matches = _matchFilledBlanks[questionIndex];
-    
-    if (matches == null) return false;
-    return matches.length == leftItems.length;
-  }
-
-  bool _isSequenceComplete(int questionIndex) {
-    final question = _questions[questionIndex];
-    if (question['type'] != 'drag_drop_sequence') return true;
-    
-    final correctAnswer = question['correctAnswer'] as List;
-    final blanks = _sequenceFilledBlanks[questionIndex];
-    
-    if (blanks == null) return false;
-    return blanks.length == correctAnswer.length;
-  }
+  bool _isMatchComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'drag_drop_match') return true; final m = _matchFilledBlanks[qi]; return m != null && m.length == (q['leftItems'] as List).length; }
+  bool _isSeqComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'drag_drop_sequence') return true; final b = _sequenceFilledBlanks[qi]; return b != null && b.length == (q['correctAnswer'] as List).length; }
+  bool _isMatchingComplete(int qi) { final q = _questions[qi]; if (q['type'] != 'matching') return true; final m = _matchingSelections[qi]; return m != null && m.length == (q['leftItems'] as List).length; }
 
   void _answerQuestion(dynamic answer) {
-    if (!_answeredQuestions[_currentQuestion]) {
-      setState(() {
-        _answeredQuestions[_currentQuestion] = true;
-        _userAnswers[_currentQuestion] = answer;
-
-        final question = _questions[_currentQuestion];
-        bool isCorrect = false;
-
-        if (question['type'] == 'multiple_choice') {
-          isCorrect = answer == question['correctAnswer'];
-        } else if (question['type'] == 'matching') {
-          isCorrect = _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
-        } else if (question['type'] == 'drag_drop_match') {
-          isCorrect = _checkDragDropMatch(answer as List<String>, question['correctMatches']);
-        } else if (question['type'] == 'drag_drop_sequence') {
-          isCorrect = _checkDragDropSequence(answer as List<String>, question['correctAnswer']);
-        }
-
-        if (isCorrect) {
-          _score++;
-        }
-        
-        if (_answeredQuestions.every((answered) => answered)) {
-          _exerciseCompleted = true;
-          _recordExerciseResults();
-        }
-      });
-    }
-  }
-
-  bool _checkMatchingAnswer(Map<int, int> userMatches, List<int> correctMatches) {
-    if (userMatches.length != correctMatches.length) return false;
-    
-    for (int i = 0; i < correctMatches.length; i++) {
-      if (userMatches[i] != correctMatches[i]) return false;
-    }
-    return true;
-  }
-
-  bool _checkDragDropMatch(List<String> userMatches, List<int> correctMatches) {
-    if (userMatches.length != correctMatches.length) return false;
-    return true;
-  }
-
-  bool _checkDragDropSequence(List<String> userAnswer, List<String> correctAnswer) {
-    if (userAnswer.length != correctAnswer.length) return false;
-    
-    for (int i = 0; i < correctAnswer.length; i++) {
-      if (userAnswer[i] != correctAnswer[i]) return false;
-    }
-    return true;
-  }
-
-  void _recordExerciseResults() {
-    final percentage = (_score / _questions.length * 100).toInt();
-    
-    progressManager.recordExerciseScore(
-      widget.lessonName,
-      widget.language,
-      widget.subLessonIndex,
-      'Algebra Comprehensive Exercise',
-      _score,
-      _questions.length,
-      _score,
-      percentage.toDouble(),
-    );
-  }
-
-  void _nextQuestion() {
-    if (_currentQuestion < _questions.length - 1) {
-      setState(() {
-        _currentQuestion++;
-        _initQuestion();
-      });
-    }
-  }
-
-  void _previousQuestion() {
-    if (_currentQuestion > 0) {
-      setState(() {
-        _currentQuestion--;
-        _initQuestion();
-      });
-    }
-  }
-
-  void _restartExercise() {
+    if (_answeredQuestions[_currentQuestion]) return;
     setState(() {
-      _currentQuestion = 0;
-      _score = 0;
-      _exerciseCompleted = false;
-      _userAnswers = List.filled(_questions.length, null);
-      _answeredQuestions = List.filled(_questions.length, false);
-      _matchingSelections.clear();
-      _matchFilledBlanks.clear();
-      _sequenceFilledBlanks.clear();
-      _initQuestion();
+      _answeredQuestions[_currentQuestion] = true; _userAnswers[_currentQuestion] = answer;
+      final q = _questions[_currentQuestion]; bool isCorrect = false;
+      if (q['type'] == 'multiple_choice') isCorrect = answer == q['correctAnswer'];
+      else if (q['type'] == 'matching') isCorrect = _checkMatching(answer as Map<int, int>, q['correctMatches']);
+      else if (q['type'] == 'drag_drop_match') isCorrect = _checkDDMatch(answer as List<String>, q['correctMatches'], q['rightItems']);
+      else if (q['type'] == 'drag_drop_sequence') isCorrect = _checkSeq(answer as List<String>, q['correctAnswer']);
+      if (isCorrect) _score++;
+      if (_answeredQuestions.every((a) => a)) { _exerciseCompleted = true; _recordResults(); }
     });
   }
 
-  void _submitInteractiveAnswer(Map<String, dynamic> question) {
-    dynamic answer;
-    
-    if (question['type'] == 'matching') {
-      final matches = _matchingSelections[_currentQuestion];
-      if (matches == null || matches.length != (question['leftItems'] as List).length) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all matches first'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      answer = matches;
-    } 
-    else if (question['type'] == 'drag_drop_match') {
-      if (!_isMatchComplete(_currentQuestion)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all matches'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      final matches = _matchFilledBlanks[_currentQuestion]!;
-      final List<String> answerList = [];
-      for (int i = 0; i < (question['leftItems'] as List).length; i++) {
-        answerList.add(matches[i] ?? '');
-      }
-      answer = answerList;
-    }
-    else if (question['type'] == 'drag_drop_sequence') {
-      if (!_isSequenceComplete(_currentQuestion)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please complete all blanks'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-      final blanks = _sequenceFilledBlanks[_currentQuestion]!;
-      final List<String> answerList = [];
-      final blankPositions = question['blankPositions'] as List;
-      for (int i = 0; i < blankPositions.length; i++) {
-        answerList.add(blanks[blankPositions[i]] ?? '');
-      }
-      answer = answerList;
-    }
-    
-    _answerQuestion(answer);
+  bool _checkMatching(Map<int, int> user, List<int> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
+    return true;
   }
 
-  bool _isAnswerCorrect(Map<String, dynamic> question) {
-    final answer = _userAnswers[_currentQuestion];
-    if (answer == null) return false;
-    
-    if (question['type'] == 'multiple_choice') {
-      return answer == question['correctAnswer'];
-    } else if (question['type'] == 'matching') {
-      return _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
+  // ✅ FIXED
+  bool _checkDDMatch(List<String> userMatches, List<int> correctMatches, List rightItems) {
+    if (userMatches.length != correctMatches.length) return false;
+    for (int i = 0; i < correctMatches.length; i++) {
+      final expected = rightItems[correctMatches[i]] as String;
+      if (userMatches[i] != expected) return false;
     }
     return true;
   }
 
-  String _getOperationName(String operation) {
-    switch (operation) {
-      case 'addition':
-        return 'ADDITION';
-      case 'subtraction':
-        return 'SUBTRACTION';
-      case 'multiplication':
-        return 'MULTIPLICATION';
-      case 'division':
-        return 'DIVISION';
-      default:
-        return 'ALGEBRA';
+  bool _checkSeq(List<String> user, List<String> correct) {
+    if (user.length != correct.length) return false;
+    for (int i = 0; i < correct.length; i++) { if (user[i] != correct[i]) return false; }
+    return true;
+  }
+
+  void _recordResults() {
+    final pct = (_score / _questions.length * 100).toInt();
+    progressManager.recordExerciseScore(widget.lessonName, widget.language, widget.subLessonIndex, 'Algebra Comprehensive Exercise', _score, _questions.length, _score, pct.toDouble());
+  }
+
+  void _nextQuestion() { if (_currentQuestion < _questions.length - 1) setState(() { _currentQuestion++; _initQuestion(); }); }
+  void _previousQuestion() { if (_currentQuestion > 0) setState(() { _currentQuestion--; _initQuestion(); }); }
+  void _restartExercise() { setState(() { _currentQuestion = 0; _score = 0; _exerciseCompleted = false; _userAnswers = List.filled(_questions.length, null); _answeredQuestions = List.filled(_questions.length, false); _matchingSelections.clear(); _matchFilledBlanks.clear(); _sequenceFilledBlanks.clear(); _initQuestion(); }); }
+
+  void _submitInteractiveAnswer(Map<String, dynamic> q) {
+    final t = q['type'] as String;
+    if (t == 'matching') {
+      if (!_isMatchingComplete(_currentQuestion)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all matches first'), duration: Duration(seconds: 2))); return; }
+      _answerQuestion(Map<int, int>.from(_matchingSelections[_currentQuestion]!));
+    } else if (t == 'drag_drop_match') {
+      if (!_isMatchComplete(_currentQuestion)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all matches'), duration: Duration(seconds: 2))); return; }
+      final m = _matchFilledBlanks[_currentQuestion]!;
+      final List<String> ans = [];
+      for (int i = 0; i < (q['leftItems'] as List).length; i++) ans.add(m[i] ?? '');
+      _answerQuestion(ans);
+    } else if (t == 'drag_drop_sequence') {
+      if (!_isSeqComplete(_currentQuestion)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please complete all blanks'), duration: Duration(seconds: 2))); return; }
+      final b = _sequenceFilledBlanks[_currentQuestion]!;
+      final bp = q['blankPositions'] as List;
+      final List<String> ans = [];
+      for (int i = 0; i < bp.length; i++) ans.add(b[bp[i]] ?? '');
+      _answerQuestion(ans);
     }
   }
 
-  Color _getOperationColor(String operation) {
-    switch (operation) {
-      case 'addition':
-        return Colors.blue;
-      case 'subtraction':
-        return Colors.red;
-      case 'multiplication':
-        return Colors.green;
-      case 'division':
-        return Colors.purple;
-      default:
-        return Colors.orange;
-    }
+  bool _isAnswerCorrect(Map<String, dynamic> q) {
+    final a = _userAnswers[_currentQuestion]; if (a == null) return false;
+    if (q['type'] == 'multiple_choice') return a == q['correctAnswer'];
+    if (q['type'] == 'matching') return _checkMatching(a as Map<int, int>, q['correctMatches']);
+    return true;
   }
 
-  Color _getTypeColor(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return Colors.blue;
-      case 'matching':
-        return Colors.purple;
-      case 'drag_drop_match':
-      case 'drag_drop_sequence':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getTypeName(String type) {
-    switch (type) {
-      case 'multiple_choice':
-        return 'MULTIPLE CHOICE';
-      case 'matching':
-        return 'MATCHING TYPE';
-      case 'drag_drop_match':
-        return 'DRAG & DROP - MATCH';
-      case 'drag_drop_sequence':
-        return 'DRAG & DROP - EQUATION';
-      default:
-        return '';
-    }
-  }
+  String _getOpName(String op) { switch(op) { case 'addition': return 'ADDITION'; case 'subtraction': return 'SUBTRACTION'; case 'multiplication': return 'MULTIPLICATION'; default: return 'DIVISION'; } }
+  Color _getOpColor(String op) { switch(op) { case 'addition': return Colors.blue; case 'subtraction': return Colors.red; case 'multiplication': return Colors.green; default: return Colors.purple; } }
+  Color _getTypeColor(String t) { if (t == 'multiple_choice') return Colors.blue; if (t == 'matching') return Colors.purple; return Colors.orange; }
+  String _getTypeName(String t) { if (t == 'multiple_choice') return 'MULTIPLE CHOICE'; if (t == 'matching') return 'MATCHING TYPE'; if (t == 'drag_drop_sequence') return 'DRAG & DROP - EQUATION'; return 'DRAG & DROP - MATCH'; }
 
   @override
   Widget build(BuildContext context) {
-    if (_exerciseCompleted) {
-      return _buildResultsScreen();
-    }
-
-    final currentQuestion = _questions[_currentQuestion];
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Algebra Exercise',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: screenWidth * 0.04,
-            vertical: screenHeight * 0.02,
-          ),
-          child: Column(
-            children: [
-              // Progress header
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _getOperationColor(currentQuestion['operation']).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: _getOperationColor(currentQuestion['operation']), width: 1),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Question ${_currentQuestion + 1}/${_questions.length}',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.045,
-                            fontWeight: FontWeight.bold,
-                            color: _getOperationColor(currentQuestion['operation']),
-                          ),
-                        ),
-                        Text(
-                          _getOperationName(currentQuestion['operation']),
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            color: _getOperationColor(currentQuestion['operation']).withOpacity(0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.amber, width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.star, color: Colors.amber, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$_score',
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.04,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Type badge
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getTypeColor(currentQuestion['type']),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _getTypeName(currentQuestion['type']),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // Question card
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(screenWidth * 0.05),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.black, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color.fromRGBO(0, 0, 0, 0.15),
-                      blurRadius: 8,
-                      offset: const Offset(4, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Question text
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.02),
-                      child: Text(
-                        currentQuestion['question'] as String,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.045,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-
-                    const SizedBox(height: 15),
-
-                    // Visual representation based on operation
-                    _buildOperationVisual(currentQuestion['operation'], screenWidth),
-
-                    const SizedBox(height: 15),
-
-                    // Question content based on type
-                    if (currentQuestion['type'] == 'multiple_choice')
-                      _buildMultipleChoice(currentQuestion, screenWidth)
-                    else if (currentQuestion['type'] == 'matching')
-                      _buildMatchingType(currentQuestion, screenWidth)
-                    else if (currentQuestion['type'] == 'drag_drop_match' && _dragItemsInitialized)
-                      _buildDragDropMatch(currentQuestion, screenWidth)
-                    else if (currentQuestion['type'] == 'drag_drop_sequence' && _dragItemsInitialized)
-                      _buildDragDropSequence(currentQuestion, screenWidth),
-
-                    const SizedBox(height: 15),
-
-                    // Submit button for interactive types
-                    if (!_answeredQuestions[_currentQuestion] && 
-                        (currentQuestion['type'] == 'matching' || 
-                         currentQuestion['type'] == 'drag_drop_match' ||
-                         currentQuestion['type'] == 'drag_drop_sequence'))
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(180, 40),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                        ),
-                        onPressed: () => _submitInteractiveAnswer(currentQuestion),
-                        child: const Text('Submit Answer', style: TextStyle(fontSize: 14)),
-                      ),
-
-                    const SizedBox(height: 15),
-
-                    // Explanation
-                    if (_answeredQuestions[_currentQuestion])
-                      Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.all(screenWidth * 0.03),
-                        decoration: BoxDecoration(
-                          color: _isAnswerCorrect(currentQuestion) ? Colors.green[50] : Colors.red[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _isAnswerCorrect(currentQuestion) ? Colors.green : Colors.red,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          _isAnswerCorrect(currentQuestion)
-                              ? '✓ Correct! ${currentQuestion['explanation'] as String}'
-                              : '✗ ${currentQuestion['explanation'] as String}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: screenWidth > 600 ? 15 : 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 15),
-
-              // Navigation buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _currentQuestion > 0 ? _previousQuestion : null,
-                      child: const Text('Previous', style: TextStyle(fontSize: 14)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 1,
-                      ),
-                      onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null,
-                      child: Text(
-                        _currentQuestion == _questions.length - 1 ? 'Finish' : 'Next',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    if (_exerciseCompleted) return _buildResultsScreen();
+    final q = _questions[_currentQuestion]; final sw = MediaQuery.of(context).size.width;
+    return Scaffold(backgroundColor: Colors.white,
+      appBar: AppBar(backgroundColor: Colors.white, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)), title: const Text('Algebra Exercise', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)), centerTitle: true, elevation: 0),
+      body: SafeArea(child: SingleChildScrollView(padding: EdgeInsets.symmetric(horizontal: sw * 0.04, vertical: 16), child: Column(children: [
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: _getOpColor(q['operation']).withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: _getOpColor(q['operation']), width: 1)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Question ${_currentQuestion + 1}/${_questions.length}', style: TextStyle(fontSize: sw * 0.045, fontWeight: FontWeight.bold, color: _getOpColor(q['operation']))), Text(_getOpName(q['operation']), style: TextStyle(fontSize: sw * 0.035, color: _getOpColor(q['operation']).withOpacity(0.8)))]),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber)), child: Row(children: [const Icon(Icons.star, color: Colors.amber, size: 16), const SizedBox(width: 4), Text('$_score', style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold, color: Colors.amber[800]))])),
+          ])),
+        const SizedBox(height: 12),
+        Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: _getTypeColor(q['type']), borderRadius: BorderRadius.circular(20)), child: Text(_getTypeName(q['type']), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+        const SizedBox(height: 12),
+        Container(width: double.infinity, padding: EdgeInsets.all(sw * 0.05),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.black, width: 2), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8, offset: const Offset(4, 4))]),
+          child: Column(children: [
+            Text(q['question'] as String, textAlign: TextAlign.center, style: TextStyle(fontSize: sw * 0.045, fontWeight: FontWeight.bold), maxLines: 3, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 15),
+            if (q['type'] == 'multiple_choice') _buildMC(q, sw)
+            else if (q['type'] == 'matching') _buildMatching(q, sw)
+            else if (q['type'] == 'drag_drop_match' && _dragItemsInitialized) _buildDDMatch(q, sw)
+            else if (q['type'] == 'drag_drop_sequence' && _dragItemsInitialized) _buildDDSeq(q, sw),
+            const SizedBox(height: 15),
+            if (!_answeredQuestions[_currentQuestion] && (q['type'] == 'matching' || q['type'] == 'drag_drop_match' || q['type'] == 'drag_drop_sequence'))
+              ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, minimumSize: const Size(180, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))), onPressed: () => _submitInteractiveAnswer(q), child: const Text('Submit Answer', style: TextStyle(fontSize: 14))),
+            const SizedBox(height: 15),
+            if (_answeredQuestions[_currentQuestion])
+              Container(width: double.infinity, padding: EdgeInsets.all(sw * 0.03), decoration: BoxDecoration(color: _isAnswerCorrect(q) ? Colors.green[50] : Colors.red[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: _isAnswerCorrect(q) ? Colors.green : Colors.red, width: 1.5)),
+                child: Text(_isAnswerCorrect(q) ? '✓ Correct! ${q['explanation']}' : '✗ ${q['explanation']}', textAlign: TextAlign.center, style: TextStyle(fontSize: sw > 600 ? 15 : 13, fontWeight: FontWeight.w500))),
+          ])),
+        const SizedBox(height: 15),
+        Row(children: [
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1), onPressed: _currentQuestion > 0 ? _previousQuestion : null, child: const Text('Previous', style: TextStyle(fontSize: 14)))),
+          const SizedBox(width: 10),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 12), elevation: 1), onPressed: _answeredQuestions[_currentQuestion] ? _nextQuestion : null, child: Text(_currentQuestion == _questions.length - 1 ? 'Finish' : 'Next', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)))),
+        ]),
+      ]))));
   }
 
-  // ===== OPERATION VISUAL =====
-  Widget _buildOperationVisual(String operation, double screenWidth) {
-    IconData iconData;
-    Color color;
-    
-    switch (operation) {
-      case 'addition':
-        iconData = Icons.add_circle;
-        color = Colors.blue;
-        break;
-      case 'subtraction':
-        iconData = Icons.remove_circle;
-        color = Colors.red;
-        break;
-      case 'multiplication':
-        iconData = Icons.close;
-        color = Colors.green;
-        break;
-      case 'division':
-        iconData = Icons.percent;
-        color = Colors.purple;
-        break;
-      default:
-        iconData = Icons.functions;
-        color = Colors.orange;
-    }
-
-    return Container(
-      padding: EdgeInsets.all(8),
-      child: Icon(
-        iconData,
-        color: color,
-        size: screenWidth * 0.08,
-      ),
-    );
+  Widget _buildMC(Map<String, dynamic> q, double sw) {
+    return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: sw > 600 ? 2.2 : 2.0, crossAxisSpacing: 8, mainAxisSpacing: 8),
+      itemCount: (q['options'] as List).length,
+      itemBuilder: (context, i) {
+        final isAnswered = _answeredQuestions[_currentQuestion]; final isSel = _userAnswers[_currentQuestion] == i; final isCorrect = i == (q['correctAnswer'] as int);
+        Color c = Colors.white;
+        if (isAnswered) { if (isSel && isCorrect) c = Colors.green; else if (isSel) c = Colors.red; else if (isCorrect) c = Colors.green[100]!; }
+        return GestureDetector(onTap: isAnswered ? null : () => _answerQuestion(i),
+          child: AnimatedContainer(duration: const Duration(milliseconds: 200), decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(10), border: Border.all(color: isSel ? Colors.black : Colors.grey[300]!, width: isSel ? 2 : 1)),
+            child: Center(child: Padding(padding: const EdgeInsets.all(6), child: Text((q['options'] as List)[i] as String, textAlign: TextAlign.center, style: TextStyle(fontSize: sw > 600 ? 18 : 16, fontWeight: FontWeight.bold))))));
+      });
   }
 
-  // ===== MULTIPLE CHOICE BUILDER =====
-  Widget _buildMultipleChoice(Map<String, dynamic> question, double screenWidth) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: screenWidth > 600 ? 2.2 : 2.0,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: (question['options'] as List).length,
-      itemBuilder: (context, index) {
-        final isAnswered = _answeredQuestions[_currentQuestion];
-        final isSelected = _userAnswers[_currentQuestion] == index;
-        final isCorrect = index == (question['correctAnswer'] as int);
-
-        Color buttonColor = Colors.white;
-        if (isAnswered) {
-          if (isSelected && isCorrect) {
-            buttonColor = Colors.green;
-          } else if (isSelected && !isCorrect) {
-            buttonColor = Colors.red;
-          } else if (isCorrect) {
-            buttonColor = Colors.green[100]!;
-          }
-        }
-
-        return GestureDetector(
-          onTap: isAnswered ? null : () => _answerQuestion(index),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: buttonColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isSelected ? Colors.black : Colors.grey[300]!,
-                width: isSelected ? 2 : 1,
-              ),
-              boxShadow: [
-                if (!isAnswered)
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
-              ],
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Text(
-                  (question['options'] as List)[index] as String,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: screenWidth > 600 ? 18 : 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+  Widget _buildMatching(Map<String, dynamic> q, double sw) {
+    final left = q['leftItems'] as List; final right = q['rightItems'] as List;
+    return Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.purple[200]!, width: 1.5)),
+      child: Column(children: [
+        Row(children: [
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Equation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center))),
+          const SizedBox(width: 8),
+          Expanded(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple[100], borderRadius: BorderRadius.circular(6)), child: const Text('Missing Number', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center))),
+        ]),
+        const SizedBox(height: 8),
+        ...List.generate(left.length, (i) => Padding(padding: const EdgeInsets.only(bottom: 6),
+          child: Row(children: [
+            Expanded(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey[300]!)), child: Text(left[i] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)))),
+            const SizedBox(width: 8),
+            Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 6), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.purple[300]!)),
+              child: DropdownButton<int>(value: _matchingSelections[_currentQuestion]?[i], hint: const Text('Select', style: TextStyle(fontSize: 11)), isExpanded: true, underline: const SizedBox(), iconSize: 18,
+                items: List.generate(right.length, (j) => DropdownMenuItem<int>(value: j, child: Text(right[j] as String, style: const TextStyle(fontSize: 11)))),
+                onChanged: _answeredQuestions[_currentQuestion] ? null : (v) => _updateMatchingSelection(i, v!)))),
+          ]))),
+      ]));
   }
 
-  // ===== MATCHING TYPE BUILDER =====
-  Widget _buildMatchingType(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    final rightItems = question['rightItems'] as List;
-    
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.purple[200]!, width: 1.5),
-      ),
-      child: Column(
-        children: [
-          // Headers
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.purple[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Equation',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.purple[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Missing Number',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
+  Widget _buildDDMatch(Map<String, dynamic> q, double sw) {
+    final left = q['leftItems'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange, width: 1.5)),
+        child: Column(children: List.generate(left.length, (i) {
+          final fv = _matchFilledBlanks[_currentQuestion]?[i];
+          return Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [
+            Expanded(flex: 2, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.orange[300]!)), child: Text(left[i] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)))),
+            const SizedBox(width: 8),
+            Expanded(child: DragTarget<String>(
+              builder: (ctx, cd, rd) => Container(height: 40, decoration: BoxDecoration(color: fv == null ? Colors.orange[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.orange : Colors.orange[700]!, width: 1.5)), child: Center(child: Text(fv ?? 'Drop', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: fv == null ? Colors.grey : Colors.black)))),
+              onWillAccept: (d) => _matchFilledBlanks[_currentQuestion]?[i] == null,
+              onAccept: (d) { _updateMatchBlank(i, d); ss(() {}); })),
+          ]));
+        }))),
+      const SizedBox(height: 12),
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag answers:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
           const SizedBox(height: 8),
-          
-          // Matching rows
-          ...List.generate(leftItems.length, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  // Left item
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Text(
-                        leftItems[index] as String,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 8),
-                  
-                  // Right dropdown
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.purple[300]!),
-                      ),
-                      child: DropdownButton<int>(
-                        value: _matchingSelections[_currentQuestion]?[index],
-                        hint: const Text('Select', style: TextStyle(fontSize: 11)),
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconSize: 18,
-                        items: List.generate(rightItems.length, (i) {
-                          return DropdownMenuItem<int>(
-                            value: i,
-                            child: Text(rightItems[i] as String, style: const TextStyle(fontSize: 11)),
-                          );
-                        }),
-                        onChanged: _answeredQuestions[_currentQuestion] 
-                            ? null 
-                            : (value) {
-                                _updateMatchingSelection(index, value!);
-                              },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
+          Wrap(spacing: 6, runSpacing: 6, children: _dragItems.map((item) => Draggable<String>(data: item,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(item, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.red, width: 1.5)), child: Text(item, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))))).toList()),
+        ])),
+    ]));
   }
 
-  // ===== DRAG AND DROP MATCH BUILDER =====
-  Widget _buildDragDropMatch(Map<String, dynamic> question, double screenWidth) {
-    final leftItems = question['leftItems'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Left items with drop targets
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.orange, width: 1.5),
-              ),
-              child: Column(
-                children: List.generate(leftItems.length, (index) {
-                  final filledValue = _matchFilledBlanks[_currentQuestion]?[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        // Left item
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.orange[300]!),
-                            ),
-                            child: Text(
-                              leftItems[index] as String,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(width: 8),
-                        
-                        // Drop target for match
-                        Expanded(
-                          child: DragTarget<String>(
-                            builder: (context, candidateData, rejectedData) {
-                              return Container(
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: filledValue == null
-                                      ? Colors.orange[100]
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: filledValue == null
-                                        ? Colors.orange
-                                        : Colors.orange[700]!,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    filledValue ?? 'Drop',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: filledValue == null ? Colors.grey : Colors.black,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                            onWillAccept: (data) {
-                              return _matchFilledBlanks[_currentQuestion]?[index] == null;
-                            },
-                            onAccept: (data) {
-                              _updateMatchBlank(index, data);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Drag items
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag answers:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _dragItems.map((item) {
-                      return Draggable<String>(
-                        data: item,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              item,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.red, width: 1.5),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ===== DRAG AND DROP SEQUENCE BUILDER =====
-  Widget _buildDragDropSequence(Map<String, dynamic> question, double screenWidth) {
-    final sequence = question['sequence'] as List;
-    final blankPositions = question['blankPositions'] as List;
-    
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Column(
-          children: [
-            // Sequence with blanks
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.purple[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.purple, width: 1.5),
-              ),
-              child: Column(
-                children: List.generate(sequence.length, (index) {
-                  if (blankPositions.contains(index)) {
-                    final filledValue = _sequenceFilledBlanks[_currentQuestion]?[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            (sequence[index] as String).split('?')[0],
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          DragTarget<String>(
-                            builder: (context, candidateData, rejectedData) {
-                              return Container(
-                                width: 40,
-                                height: 35,
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
-                                decoration: BoxDecoration(
-                                  color: filledValue == null
-                                      ? Colors.purple[100]
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: filledValue == null
-                                        ? Colors.purple
-                                        : Colors.purple[700]!,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    filledValue ?? '?',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                            onWillAccept: (data) {
-                              return _sequenceFilledBlanks[_currentQuestion]?[index] == null;
-                            },
-                            onAccept: (data) {
-                              _updateSequenceBlank(index, data);
-                            },
-                          ),
-                          Text(
-                            (sequence[index] as String).split('?')[1],
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    );
-                  } else {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        sequence[index] as String,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                      ),
-                    );
-                  }
-                }),
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Drag items
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.teal[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.teal, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Drag numbers:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _dragItems.map((num) {
-                      return Draggable<String>(
-                        data: num,
-                        feedback: Material(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.teal,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              num,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            num,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.teal, width: 1.5),
-                          ),
-                          child: Text(
-                            num,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+  Widget _buildDDSeq(Map<String, dynamic> q, double sw) {
+    final sequence = q['sequence'] as List; final bp = q['blankPositions'] as List;
+    return StatefulBuilder(builder: (context, ss) => Column(children: [
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.purple[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.purple, width: 1.5)),
+        child: Column(children: List.generate(sequence.length, (i) {
+          if (bp.contains(i)) {
+            final fv = _sequenceFilledBlanks[_currentQuestion]?[i];
+            return Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text((sequence[i] as String).split('?')[0], style: const TextStyle(fontSize: 13)),
+              DragTarget<String>(
+                builder: (ctx, cd, rd) => Container(width: 40, height: 35, margin: const EdgeInsets.symmetric(horizontal: 4), decoration: BoxDecoration(color: fv == null ? Colors.purple[100] : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: fv == null ? Colors.purple : Colors.purple[700]!, width: 1.5)), child: Center(child: Text(fv ?? '?', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)))),
+                onWillAccept: (d) => _sequenceFilledBlanks[_currentQuestion]?[i] == null,
+                onAccept: (d) { _updateSequenceBlank(i, d); ss(() {}); }),
+              Text((sequence[i] as String).split('?')[1], style: const TextStyle(fontSize: 13)),
+            ]));
+          }
+          return Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(sequence[i] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)));
+        }))),
+      const SizedBox(height: 12),
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.teal[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.teal, width: 1.5)),
+        child: Column(children: [
+          const Text('Drag numbers:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, runSpacing: 6, children: _dragItems.map((num) => Draggable<String>(data: num,
+            feedback: Material(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.teal, borderRadius: BorderRadius.circular(6)), child: Text(num, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)))),
+            childWhenDragging: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)), child: Text(num, style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold))),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.teal, width: 1.5)), child: Text(num, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))))).toList()),
+        ])),
+    ]));
   }
 
   Widget _buildResultsScreen() {
-    final percentage = (_score / _questions.length * 100).round();
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    String message;
-    String emoji;
-    Color color;
-
-    if (percentage == 100) {
-      message = 'Perfect Score!';
-      emoji = '🏆';
-      color = Colors.amber;
-    } else if (percentage >= 80) {
-      message = 'Great Job!';
-      emoji = '🎉';
-      color = Colors.green;
-    } else if (percentage >= 60) {
-      message = 'Good Try!';
-      emoji = '👍';
-      color = Colors.blue;
-    } else {
-      message = 'Keep Practicing!';
-      emoji = '💪';
-      color = Colors.orange;
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Exercise Complete'),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                emoji,
-                style: const TextStyle(fontSize: 70),
-              ),
-              const SizedBox(height: 15),
-              Text(
-                message,
-                style: TextStyle(
-                  fontSize: screenWidth > 600 ? 30 : 26,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 25),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: color, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Your Score',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$_score/${_questions.length}',
-                      style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$percentage%',
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: _restartExercise,
-                      child: const Text('Try Again'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF59D),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: const BorderSide(color: Colors.black, width: 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Back to Lessons'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    final pct = (_score / _questions.length * 100).round(); final sw = MediaQuery.of(context).size.width;
+    String msg; String emoji; Color color;
+    if (pct == 100) { msg = 'Perfect Score!'; emoji = '🏆'; color = Colors.amber; } else if (pct >= 80) { msg = 'Great Job!'; emoji = '🎉'; color = Colors.green; } else if (pct >= 60) { msg = 'Good Try!'; emoji = '👍'; color = Colors.blue; } else { msg = 'Keep Practicing!'; emoji = '💪'; color = Colors.orange; }
+    return Scaffold(backgroundColor: Colors.white, appBar: AppBar(backgroundColor: Colors.white, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)), title: const Text('Exercise Complete'), centerTitle: true, elevation: 0),
+      body: Center(child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Text(emoji, style: const TextStyle(fontSize: 70)), const SizedBox(height: 15),
+        Text(msg, style: TextStyle(fontSize: sw > 600 ? 30 : 26, fontWeight: FontWeight.bold, color: color)), const SizedBox(height: 25),
+        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: color, width: 2)), child: Column(children: [const Text('Your Score', style: TextStyle(fontSize: 16)), const SizedBox(height: 8), Text('$_score/${_questions.length}', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text('$pct%', style: const TextStyle(fontSize: 24))])),
+        const SizedBox(height: 30),
+        Row(children: [
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 14)), onPressed: _restartExercise, child: const Text('Try Again'))),
+          const SizedBox(width: 10),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: const BorderSide(color: Colors.black, width: 1)), padding: const EdgeInsets.symmetric(vertical: 14)), onPressed: () => Navigator.pop(context), child: const Text('Back to Lessons'))),
+        ]),
+      ]))));
   }
 }
 
+// ============================================================
+// STUDENT PROGRESS SCREEN — COMPLETE FIXED VERSION
+// Replace your entire StudentProgressScreen class (and its
+// State class) with this block.
+//
+// KEY FIXES:
+// 1. All heavy data is computed ONCE in _refreshData() via
+//    Future.microtask — never inside build().
+// 2. _allLessons cached in initState so getAllLessons() is
+//    not called repeatedly.
+// 3. Loading spinner shown while data is computing.
+// 4. Refresh button added so user can force a re-compute.
+// ============================================================
 
-// ============ STUDENT PROGRESS SCREEN - COMPLETE FIXED VERSION ============
 class StudentProgressScreen extends StatefulWidget {
   const StudentProgressScreen({Key? key}) : super(key: key);
 
@@ -29707,354 +22718,340 @@ class StudentProgressScreen extends StatefulWidget {
 }
 
 class _StudentProgressScreenState extends State<StudentProgressScreen> {
-  // Map to track which topics and lessons are expanded
-  final Map<String, bool> _expandedTopics = {};
+  // ── Expansion state ─────────────────────────────────────
+  final Map<String, bool> _expandedTopics  = {};
   final Map<String, bool> _expandedLessons = {};
-  
-  String searchTerm = '';
-  String filterType = 'all';
-  
-  // Dashboard/Topics Color Palette
-  final Color dashboardYellow = const Color(0xFFFEDA5F); // Dashboard yellow
-  final Color topicsBlue = const Color(0xFFA8D5E3); // Topics blue
-  final Color topicsPink = const Color(0xFFF5C6D6); // Topics pink
-  final Color topicsPurple = const Color(0xFFC4B1E1); // Topics purple
-  final Color topicsOrange = const Color(0xFFFFD8A8); // Topics orange
-  final Color topicsGreen = const Color(0xFFA8E3B5); // Topics green
-  final Color topicsLavender = const Color(0xFFD8A8FF); // Topics lavender
-  
-  // Initialize ProgressManager
-  final ProgressManager _progressManager = ProgressManager();
 
+  String searchTerm  = '';
+  String filterType  = 'all';
+
+  // ── Color palette ────────────────────────────────────────
+  final Color dashboardYellow = const Color(0xFFFEDA5F);
+  final Color topicsBlue      = const Color(0xFFA8D5E3);
+  final Color topicsPink      = const Color(0xFFF5C6D6);
+  final Color topicsPurple    = const Color(0xFFC4B1E1);
+  final Color topicsOrange    = const Color(0xFFFFD8A8);
+  final Color topicsGreen     = const Color(0xFFA8E3B5);
+  final Color topicsLavender  = const Color(0xFFD8A8FF);
+
+  // ── Cached data — computed once, never in build() ────────
+  List<Lesson>                         _allLessons  = [];
+  Map<String, Map<String, dynamic>>    _lessonCache = {};
+  Map<String, Map<String, dynamic>>    _topicCache  = {};
+  Map<String, dynamic>                 _summaryCache = {};
+  bool _isLoading = true;
+
+  // ─────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    _progressManager.initialize();
+    progressManager.initialize();
+    // Cache the lesson list once — avoids repeated getAllLessons() calls
+    _allLessons = TopicsData.getAllLessons();
+    // Compute heavy data off the current frame
+    Future.microtask(_refreshData);
   }
 
-  // Get all topics
-  List<Topic> get _topics => TopicsData.getTopics();
+  // ── Compute all data and store in caches ─────────────────
+  void _refreshData() {
+    if (!mounted) return;
 
-  // Get all lessons
-  List<Lesson> get allLessons {
-    return TopicsData.getAllLessons();
-  }
-
-  // Get topic color based on topic title (matching Topics screen)
-  Color getTopicColor(String topicTitle) {
-    if (topicTitle.contains('Number Values')) {
-      return topicsBlue;
-    } else if (topicTitle.contains('Fundamental Operations')) {
-      return topicsPink;
-    } else if (topicTitle.contains('Fraction')) {
-      return topicsPurple;
-    } else if (topicTitle.contains('Decimal Numbers')) {
-      return topicsOrange;
-    } else if (topicTitle.contains('Percentage')) {
-      return topicsGreen;
-    } else if (topicTitle.contains('Algebra')) {
-      return topicsLavender;
+    final newLessonCache = <String, Map<String, dynamic>>{};
+    for (final lesson in _allLessons) {
+      newLessonCache[lesson.id] = _computeLessonProgress(lesson.id);
     }
-    return dashboardYellow; // Default
-  }
 
-  // Get lesson color based on lesson title (matching lesson cards)
-  Color getLessonColor(String lessonTitle) {
-    switch (lessonTitle) {
-      case 'Whole Numbers':
-        return topicsBlue;
-      case 'Comparison':
-        return topicsPink;
-      case 'Addition':
-        return topicsBlue;
-      case 'Subtraction':
-        return topicsPink;
-      case 'Multiplication':
-        return topicsPurple;
-      case 'Division':
-        return topicsGreen;
-      case 'Fraction':
-        return topicsPurple;
-      case 'Decimal Numbers':
-        return topicsOrange;
-      case 'Percentage':
-        return topicsGreen;
-      case 'Algebra':
-        return topicsLavender;
-      default:
-        return dashboardYellow;
+    final newTopicCache = <String, Map<String, dynamic>>{};
+    for (final topic in TopicsData.getTopics()) {
+      newTopicCache[topic.id] = _computeTopicProgress(topic.id, newLessonCache);
+    }
+
+    final newSummary = _computeSummary(newLessonCache);
+
+    if (mounted) {
+      setState(() {
+        _lessonCache  = newLessonCache;
+        _topicCache   = newTopicCache;
+        _summaryCache = newSummary;
+        _isLoading    = false;
+      });
     }
   }
 
-  // Get detailed exercise scores for a lesson with subtopic breakdown
-  Map<String, dynamic> getLessonProgressData(String lessonId) {
+  // ── Compute one lesson's progress ────────────────────────
+  Map<String, dynamic> _computeLessonProgress(String lessonId) {
     final lesson = TopicsData.getLessonById(lessonId);
     if (lesson == null) return {};
 
-    final lessonName = lesson.title;
-    
-    // Get basic progress data from ProgressManager
-    final progressData = _progressManager.getLessonProgress(lessonName);
-    final videoCount = VideoDataManager.getVideoCount(lessonName);
-    
-    // Get all exercise scores for this lesson
-    final exerciseScores = _progressManager.getExerciseScoresByLesson(lessonName);
-    
-    // Get completed videos and subtopics
-    final completedVideos = _progressManager.getCompletedVideosForLesson(lessonName);
-    final completedSubtopics = _progressManager.getCompletedSubtopicsForLesson(lessonName);
-    
-    // Get subtopics directly from the lesson object
-    final subtopics = lesson.subtopics;
-    
-    // Track subtopic progress
-    Map<String, Map<String, dynamic>> subtopicProgress = {};
-    
-    // Initialize ALL subtopics with default values
-    for (var subtopic in subtopics) {
-      // Check if this subtopic is completed (video watched)
+    final lessonName         = lesson.title;
+    final progressData       = progressManager.getLessonProgress(lessonName);
+    final videoCount         = VideoDataManager.getVideoCount(lessonName);
+    final exerciseScores     = progressManager.getExerciseScoresByLesson(lessonName);
+    final completedSubtopics = progressManager.getCompletedSubtopicsForLesson(lessonName);
+    final subtopics          = lesson.subtopics;
+
+    final Map<String, Map<String, dynamic>> subtopicProgress = {};
+    for (final subtopic in subtopics) {
       final isCompleted = completedSubtopics.contains(subtopic);
-      
-      // Find matching exercise scores for this subtopic
-      List<Map<String, dynamic>> subtopicScores = [];
-      for (var exercise in exerciseScores) {
-        final exerciseType = exercise['exercise_type'] as String;
-        if (exerciseType.toLowerCase().contains(subtopic.toLowerCase())) {
-          subtopicScores.add(exercise);
-        }
-      }
-      
-      // Calculate average score if there are exercises
+
+      final subtopicScores = exerciseScores
+          .where((e) => (e['exercise_type'] as String)
+              .toLowerCase()
+              .contains(subtopic.toLowerCase()))
+          .toList();
+
       double avgScore = 0;
       if (subtopicScores.isNotEmpty) {
-        double totalPercentage = 0;
-        for (var score in subtopicScores) {
-          totalPercentage += score['percentage'] as double;
-        }
-        avgScore = totalPercentage / subtopicScores.length;
+        avgScore = subtopicScores.fold(
+                0.0, (sum, s) => sum + (s['percentage'] as double)) /
+            subtopicScores.length;
       }
-      
+
       subtopicProgress[subtopic] = {
-        'completed': isCompleted,
-        'video_completed': isCompleted,
+        'completed':          isCompleted,
+        'video_completed':    isCompleted,
         'exercise_completed': subtopicScores.isNotEmpty,
-        'score': avgScore > 0 ? avgScore : null,
-        'percentage': avgScore,
-        'attempts': subtopicScores.length,
-        'status': isCompleted ? 'Completed' : (subtopicScores.isNotEmpty ? 'Exercises Done' : 'Not Started'),
-        'scores': subtopicScores,
-        'last_score': subtopicScores.isNotEmpty 
-            ? formatScore(
-                subtopicScores.last['score'] as int, 
-                subtopicScores.last['total_questions'] as int
-              )
+        'score':              avgScore > 0 ? avgScore : null,
+        'percentage':         avgScore,
+        'attempts':           subtopicScores.length,
+        'status': isCompleted
+            ? 'Completed'
+            : (subtopicScores.isNotEmpty ? 'Exercises Done' : 'Not Started'),
+        'scores':     subtopicScores,
+        'last_score': subtopicScores.isNotEmpty
+            ? '${subtopicScores.last['score']}/${subtopicScores.last['total_questions']}'
             : null,
       };
     }
 
     return {
-      'id': lesson.id,
-      'title': lesson.title,
-      'topicId': lesson.topicId,
-      'subtopics': subtopics,
-      'subtopicCount': subtopics.length,
+      'id':                     lesson.id,
+      'title':                  lesson.title,
+      'topicId':                lesson.topicId,
+      'subtopics':              subtopics,
+      'subtopicCount':          subtopics.length,
       'completedSubtopicCount': completedSubtopics.length,
-      'subtopicProgress': subtopicProgress,
-      'hasAssessment': progressData['exercises_completed'] > 0,
-      'progress': progressData['progress'],
-      'average_score': progressData['average_score'],
-      'videos_completed': progressData['videos_completed'],
-      'exercises_completed': progressData['exercises_completed'],
-      'completed_videos': completedVideos,
-      'completed_subtopics': completedSubtopics,
-      'videoCount': videoCount,
-      'exerciseCount': progressData['exerciseCount'],
-      'best_score': progressData['best_score'],
-      'total_attempts': progressData['total_attempts'],
-      'exerciseScores': exerciseScores,
+      'subtopicProgress':       subtopicProgress,
+      'hasAssessment':          (progressData['exercises_completed'] as int) > 0,
+      'progress':               progressData['progress'],
+      'average_score':          progressData['average_score'],
+      'videos_completed':       progressData['videos_completed'],
+      'exercises_completed':    progressData['exercises_completed'],
+      'completed_subtopics':    completedSubtopics,
+      'videoCount':             videoCount,
+      'exerciseCount':          progressData['exerciseCount'],
+      'best_score':             progressData['best_score'],
+      'total_attempts':         progressData['total_attempts'],
+      'exerciseScores':         exerciseScores,
     };
   }
 
-  // Get topic progress summary
-  Map<String, dynamic> getTopicProgressData(String topicId) {
-    final topic = _topics.firstWhere((t) => t.id == topicId);
-    final topicLessons = topic.lessons;
-    
-    double totalProgress = 0;
-    int completedLessons = 0;
-    int totalVideos = 0;
-    int totalExercises = 0;
-    int completedVideos = 0;
-    int completedExercises = 0;
-    double totalScore = 0;
-    int scoreCount = 0;
-    int totalSubtopics = 0;
-    int completedSubtopics = 0;
-    
-    for (var lesson in topicLessons) {
-      final progressData = getLessonProgressData(lesson.id);
-      final progress = progressData['progress'] as double;
+  // ── Compute one topic's progress ─────────────────────────
+  Map<String, dynamic> _computeTopicProgress(
+      String topicId,
+      Map<String, Map<String, dynamic>> lessonCache) {
+    final topic = TopicsData.getTopics().firstWhere((t) => t.id == topicId);
+
+    double totalProgress      = 0;
+    int    completedLessons   = 0;
+    int    totalVideos        = 0;
+    int    totalExercises     = 0;
+    int    completedVideos    = 0;
+    int    completedExercises = 0;
+    double totalScore         = 0;
+    int    scoreCount         = 0;
+    int    totalSubtopics     = 0;
+    int    completedSubtopics = 0;
+
+    for (final lesson in topic.lessons) {
+      final pd = lessonCache[lesson.id] ?? {};
+      if (pd.isEmpty) continue;
+
+      final progress = pd['progress'] as double;
       totalProgress += progress;
-      
-      totalVideos += progressData['videoCount'] as int;
-      totalExercises += progressData['exerciseCount'] as int;
-      completedVideos += progressData['videos_completed'] as int;
-      completedExercises += progressData['exercises_completed'] as int;
-      
-      // Count subtopics
-      final subtopics = progressData['subtopics'] as List<String>;
-      final subtopicProgress = progressData['subtopicProgress'] as Map<String, Map<String, dynamic>>;
-      
+
+      totalVideos        += pd['videoCount']          as int;
+      totalExercises     += pd['exerciseCount']        as int;
+      completedVideos    += pd['videos_completed']     as int;
+      completedExercises += pd['exercises_completed']  as int;
+
+      final subtopics = pd['subtopics']         as List<String>;
+      final subProg   = pd['subtopicProgress']  as Map<String, Map<String, dynamic>>;
       totalSubtopics += subtopics.length;
-      
-      // Count completed subtopics (video watched)
-      for (var subtopic in subtopics) {
-        if (subtopicProgress[subtopic]?['video_completed'] == true) {
-          completedSubtopics++;
-        }
+      for (final sub in subtopics) {
+        if (subProg[sub]?['video_completed'] == true) completedSubtopics++;
       }
-      
+
       if (progress >= 90) completedLessons++;
-      
-      // Accumulate scores
-      if (progressData['average_score'] > 0) {
-        totalScore += progressData['average_score'] as double;
-        scoreCount++;
-      }
+
+      final avg = pd['average_score'] as double;
+      if (avg > 0) { totalScore += avg; scoreCount++; }
     }
-    
-    final avgProgress = topicLessons.isNotEmpty ? totalProgress / topicLessons.length : 0.0;
-    final avgScore = scoreCount > 0 ? totalScore / scoreCount : 0.0;
-    
+
     return {
-      'topicId': topicId,
-      'topicTitle': topic.title,
-      'totalLessons': topicLessons.length,
-      'completedLessons': completedLessons,
-      'averageProgress': avgProgress,
-      'averageScore': avgScore,
-      'inProgress': topicLessons.length - completedLessons,
-      'totalVideos': totalVideos,
-      'totalExercises': totalExercises,
-      'completedVideos': completedVideos,
+      'topicId':            topicId,
+      'topicTitle':         topic.title,
+      'totalLessons':       topic.lessons.length,
+      'completedLessons':   completedLessons,
+      'averageProgress':    topic.lessons.isNotEmpty
+          ? totalProgress / topic.lessons.length
+          : 0.0,
+      'averageScore':       scoreCount > 0 ? totalScore / scoreCount : 0.0,
+      'inProgress':         topic.lessons.length - completedLessons,
+      'totalVideos':        totalVideos,
+      'totalExercises':     totalExercises,
+      'completedVideos':    completedVideos,
       'completedExercises': completedExercises,
-      'totalSubtopics': totalSubtopics,
+      'totalSubtopics':     totalSubtopics,
       'completedSubtopics': completedSubtopics,
     };
   }
 
-  // Get overall summary statistics
-  Map<String, dynamic> get summaryStats {
-    int completedLessons = 0;
-    double totalProgress = 0;
-    int totalVideosWatched = 0;
-    int totalExercisesCompleted = 0;
-    int totalCorrectAnswers = 0;
-    int totalQuestionsAnswered = 0;
-    int totalSubtopics = 0;
-    int completedSubtopics = 0;
-    
-    for (var lesson in allLessons) {
-      final progressData = getLessonProgressData(lesson.id);
-      final progress = progressData['progress'] as double;
+  // ── Compute overall summary ──────────────────────────────
+  Map<String, dynamic> _computeSummary(
+      Map<String, Map<String, dynamic>> lessonCache) {
+    int    completedLessons        = 0;
+    double totalProgress           = 0;
+    int    totalVideosWatched      = 0;
+    int    totalExercisesCompleted = 0;
+    int    totalSubtopics          = 0;
+    int    completedSubtopics      = 0;
+    int    inProgressLessons       = 0;
+
+    for (final lesson in _allLessons) {
+      final pd = lessonCache[lesson.id] ?? {};
+      if (pd.isEmpty) continue;
+
+      final progress = pd['progress'] as double;
       totalProgress += progress;
       if (progress >= 90) completedLessons++;
-      
-      totalVideosWatched += progressData['videos_completed'] as int;
-      totalExercisesCompleted += progressData['exercises_completed'] as int;
-      
-      // Count subtopics
-      final subtopics = progressData['subtopics'] as List<String>;
-      final subtopicProgress = progressData['subtopicProgress'] as Map<String, Map<String, dynamic>>;
-      
+      if (progress > 0 && progress < 90) inProgressLessons++;
+
+      totalVideosWatched      += pd['videos_completed']    as int;
+      totalExercisesCompleted += pd['exercises_completed'] as int;
+
+      final subtopics = pd['subtopics']        as List<String>;
+      final subProg   = pd['subtopicProgress'] as Map<String, Map<String, dynamic>>;
       totalSubtopics += subtopics.length;
-      
-      for (var subtopic in subtopics) {
-        if (subtopicProgress[subtopic]?['video_completed'] == true) {
-          completedSubtopics++;
-        }
+      for (final sub in subtopics) {
+        if (subProg[sub]?['video_completed'] == true) completedSubtopics++;
       }
     }
-    
-    // Get overall stats from ProgressManager
-    final overallStats = _progressManager.getOverallStats();
-    totalCorrectAnswers = overallStats['correct_answers'] as int;
-    totalQuestionsAnswered = overallStats['total_questions_answered'] as int;
-    
-    final totalVideos = VideoDataManager.getTotalVideos();
-    final totalExercises = allLessons.length;
-    final inProgressLessons = allLessons.where((lesson) {
-      final progressData = getLessonProgressData(lesson.id);
-      final progress = progressData['progress'] as double;
-      return progress > 0 && progress < 90;
-    }).length;
-    
-    final accuracyRate = totalQuestionsAnswered > 0 
+
+    final overallStats           = progressManager.getOverallStats();
+    final totalCorrectAnswers    = overallStats['correct_answers']          as int;
+    final totalQuestionsAnswered = overallStats['total_questions_answered'] as int;
+    final totalVideos            = VideoDataManager.getTotalVideos();
+    final accuracyRate = totalQuestionsAnswered > 0
         ? (totalCorrectAnswers / totalQuestionsAnswered * 100).round()
         : 0;
-    
+
     return {
-      'totalLessons': allLessons.length,
-      'completedLessons': completedLessons,
-      'avgProgress': allLessons.isNotEmpty ? (totalProgress / allLessons.length).toInt() : 0,
-      'inProgress': inProgressLessons,
-      'notStarted': allLessons.length - completedLessons - inProgressLessons,
-      'completionRate': allLessons.isNotEmpty ? (completedLessons / allLessons.length * 100).toInt() : 0,
-      'videosWatched': totalVideosWatched,
+      'totalLessons':       _allLessons.length,
+      'completedLessons':   completedLessons,
+      'avgProgress':        _allLessons.isNotEmpty
+          ? (totalProgress / _allLessons.length).toInt()
+          : 0,
+      'inProgress':         inProgressLessons,
+      'notStarted':         _allLessons.length - completedLessons - inProgressLessons,
+      'completionRate':     _allLessons.isNotEmpty
+          ? (completedLessons / _allLessons.length * 100).toInt()
+          : 0,
+      'videosWatched':      totalVideosWatched,
       'exercisesCompleted': totalExercisesCompleted,
-      'totalVideos': totalVideos,
-      'totalExercises': totalExercises,
-      'totalSubtopics': totalSubtopics,
+      'totalVideos':        totalVideos,
+      'totalExercises':     _allLessons.length,
+      'totalSubtopics':     totalSubtopics,
       'completedSubtopics': completedSubtopics,
-      'accuracyRate': accuracyRate,
+      'accuracyRate':       accuracyRate,
     };
   }
 
-  // Toggle topic expansion
-  void toggleTopic(String topicId) {
-    setState(() {
-      _expandedTopics[topicId] = !(_expandedTopics[topicId] ?? false);
-    });
+  // ── Safe cached accessors ────────────────────────────────
+  Map<String, dynamic> _lessonProgress(String lessonId) =>
+      _lessonCache[lessonId] ?? {};
+  Map<String, dynamic> _topicProgress(String topicId) =>
+      _topicCache[topicId] ?? {};
+
+  // ── Color helpers ────────────────────────────────────────
+  Color getTopicColor(String t) {
+    if (t.contains('Number Values'))          return topicsBlue;
+    if (t.contains('Fundamental Operations')) return topicsPink;
+    if (t.contains('Fraction'))               return topicsPurple;
+    if (t.contains('Decimal Numbers'))        return topicsOrange;
+    if (t.contains('Percentage'))             return topicsGreen;
+    if (t.contains('Algebra'))                return topicsLavender;
+    return dashboardYellow;
   }
 
-  // Toggle lesson expansion
-  void toggleLesson(String lessonId) {
-    setState(() {
-      _expandedLessons[lessonId] = !(_expandedLessons[lessonId] ?? false);
-    });
+  Color getLessonColor(String l) {
+    switch (l) {
+      case 'Whole Numbers':   return topicsBlue;
+      case 'Comparison':      return topicsPink;
+      case 'Addition':        return topicsBlue;
+      case 'Subtraction':     return topicsPink;
+      case 'Multiplication':  return topicsPurple;
+      case 'Division':        return topicsGreen;
+      case 'Fraction':        return topicsPurple;
+      case 'Decimal Numbers': return topicsOrange;
+      case 'Percentage':      return topicsGreen;
+      case 'Algebra':         return topicsLavender;
+      default:                return dashboardYellow;
+    }
   }
 
-  // Get progress color based on percentage (using dashboard yellow theme)
-  Color getProgressColor(double progress) {
-    if (progress >= 90) return Colors.green;
-    if (progress >= 75) return Colors.orange;
-    if (progress >= 50) return dashboardYellow;
-    if (progress > 0) return Colors.blue;
+  Color getProgressColor(double p) {
+    if (p >= 90) return Colors.green;
+    if (p >= 75) return Colors.orange;
+    if (p >= 50) return dashboardYellow;
+    if (p >   0) return Colors.blue;
     return Colors.grey;
   }
 
-  // Get score color based on percentage
-  Color getScoreColor(double score) {
-    if (score >= 90) return Colors.green;
-    if (score >= 75) return Colors.orange;
-    if (score >= 60) return dashboardYellow;
-    if (score > 0) return Colors.red;
+  Color getScoreColor(double s) {
+    if (s >= 90) return Colors.green;
+    if (s >= 75) return Colors.orange;
+    if (s >= 60) return dashboardYellow;
+    if (s >   0) return Colors.red;
     return Colors.grey;
   }
 
-  // Format score as 5/10
-  String formatScore(int score, int total) {
-    return '$score/$total';
-  }
+  void toggleTopic(String id) =>
+      setState(() => _expandedTopics[id]  = !(_expandedTopics[id]  ?? false));
+  void toggleLesson(String id) =>
+      setState(() => _expandedLessons[id] = !(_expandedLessons[id] ?? false));
 
+  // ── BUILD ─────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: dashboardYellow,
+                strokeWidth: 3,
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Loading progress...',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+            // ── Header ──────────────────────────────────────
             Container(
               padding: const EdgeInsets.all(20),
               color: Colors.white,
@@ -30081,61 +23078,78 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                         Text(
                           'My Progress',
                           style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
+                              fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black),
                         ),
                         Text(
                           'Track your learning journey',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.black54,
-                          ),
+                          style: TextStyle(fontSize: 14, color: Colors.black54),
                         ),
                       ],
+                    ),
+                  ),
+                  // Refresh button
+                  GestureDetector(
+                    onTap: () {
+                      setState(() => _isLoading = true);
+                      Future.microtask(_refreshData);
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: const Icon(Icons.refresh, color: Colors.black, size: 20),
                     ),
                   ),
                 ],
               ),
             ),
 
-            // Summary Stats Cards
-            Container(
+            // ── Summary stat cards ───────────────────────────
+            SizedBox(
               height: 120,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ListView(
                 scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   _buildStatCard(
                     icon: Icons.menu_book,
                     title: 'Lessons',
-                    value: '${summaryStats['completedLessons']}/${summaryStats['totalLessons']}',
-                    subtitle: '${summaryStats['completionRate']}% done',
+                    value:
+                        '${_summaryCache['completedLessons']}/${_summaryCache['totalLessons']}',
+                    subtitle: '${_summaryCache['completionRate']}% done',
                     color: topicsBlue,
                   ),
                   const SizedBox(width: 12),
                   _buildStatCard(
                     icon: Icons.play_circle,
                     title: 'Videos',
-                    value: '${summaryStats['videosWatched']}/${summaryStats['totalVideos']}',
-                    subtitle: '${summaryStats['totalVideos'] > 0 ? (summaryStats['videosWatched'] / summaryStats['totalVideos'] * 100).toInt() : 0}%',
+                    value:
+                        '${_summaryCache['videosWatched']}/${_summaryCache['totalVideos']}',
+                    subtitle:
+                        '${(_summaryCache['totalVideos'] as int) > 0 ? ((_summaryCache['videosWatched'] as int) / (_summaryCache['totalVideos'] as int) * 100).toInt() : 0}%',
                     color: topicsPink,
                   ),
                   const SizedBox(width: 12),
                   _buildStatCard(
                     icon: Icons.assignment,
                     title: 'Exercises',
-                    value: '${summaryStats['exercisesCompleted']}/${summaryStats['totalExercises']}',
-                    subtitle: '${summaryStats['accuracyRate']}% accuracy',
+                    value:
+                        '${_summaryCache['exercisesCompleted']}/${_summaryCache['totalExercises']}',
+                    subtitle: '${_summaryCache['accuracyRate']}% accuracy',
                     color: topicsPurple,
                   ),
                   const SizedBox(width: 12),
                   _buildStatCard(
                     icon: Icons.list,
                     title: 'Subtopics',
-                    value: '${summaryStats['completedSubtopics']}/${summaryStats['totalSubtopics']}',
-                    subtitle: '${summaryStats['totalSubtopics'] > 0 ? (summaryStats['completedSubtopics'] / summaryStats['totalSubtopics'] * 100).toInt() : 0}%',
+                    value:
+                        '${_summaryCache['completedSubtopics']}/${_summaryCache['totalSubtopics']}',
+                    subtitle:
+                        '${(_summaryCache['totalSubtopics'] as int) > 0 ? ((_summaryCache['completedSubtopics'] as int) / (_summaryCache['totalSubtopics'] as int) * 100).toInt() : 0}%',
                     color: topicsGreen,
                   ),
                 ],
@@ -30144,7 +23158,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
 
             const SizedBox(height: 16),
 
-            // Search and Filter
+            // ── Search + filter ──────────────────────────────
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               padding: const EdgeInsets.all(16),
@@ -30155,7 +23169,6 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
               ),
               child: Column(
                 children: [
-                  // Search bar
                   Container(
                     height: 48,
                     decoration: BoxDecoration(
@@ -30175,22 +23188,20 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                               border: InputBorder.none,
                               hintStyle: TextStyle(color: Colors.grey.shade500),
                             ),
-                            onChanged: (value) => setState(() => searchTerm = value),
+                            onChanged: (v) => setState(() => searchTerm = v),
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 12),
-                  
-                  // Filter chips
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _buildFilterChip('All', filterType == 'all'),
+                        _buildFilterChip('All',         filterType == 'all'),
                         const SizedBox(width: 8),
-                        _buildFilterChip('Completed', filterType == 'completed'),
+                        _buildFilterChip('Completed',   filterType == 'completed'),
                         const SizedBox(width: 8),
                         _buildFilterChip('In Progress', filterType == 'in-progress'),
                         const SizedBox(width: 8),
@@ -30204,17 +23215,15 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
 
             const SizedBox(height: 16),
 
-            // Topics and Lessons List
-            Expanded(
-              child: _buildTopicsList(),
-            ),
+            // ── Topics list ──────────────────────────────────
+            Expanded(child: _buildTopicsList()),
           ],
         ),
       ),
     );
   }
 
-  // Build stat card
+  // ── Stat card widget ─────────────────────────────────────
   Widget _buildStatCard({
     required IconData icon,
     required String title,
@@ -30231,10 +23240,9 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
         border: Border.all(color: Colors.black, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -30242,47 +23250,32 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
         children: [
           Icon(icon, color: Colors.black, size: 24),
           const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Colors.black54,
-            ),
-          ),
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w500, color: Colors.black87)),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black)),
+          Text(subtitle,
+              style: const TextStyle(fontSize: 11, color: Colors.black54)),
         ],
       ),
     );
   }
 
-  // Build filter chip
+  // ── Filter chip widget ───────────────────────────────────
   Widget _buildFilterChip(String label, bool isSelected) {
     return GestureDetector(
-      onTap: () => setState(() => filterType = label.toLowerCase().replaceAll(' ', '-')),
+      onTap: () =>
+          setState(() => filterType = label.toLowerCase().replaceAll(' ', '-')),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? dashboardYellow : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? dashboardYellow : Colors.grey.shade300,
-            width: 1.5,
-          ),
+              color: isSelected ? dashboardYellow : Colors.grey.shade300,
+              width: 1.5),
         ),
         child: Text(
           label,
@@ -30296,42 +23289,34 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     );
   }
 
-  // Build topics list with filtering
+  // ── Topics list builder ──────────────────────────────────
   Widget _buildTopicsList() {
-    List<Topic> filteredTopics = [];
-    
-    for (var topic in _topics) {
-      List<Lesson> filteredLessons = [];
-      
-      for (var lesson in topic.lessons) {
-        final progressData = getLessonProgressData(lesson.id);
-        final progress = progressData['progress'] as double;
-        
-        bool matchesSearch = searchTerm.isEmpty || 
+    final allTopics = TopicsData.getTopics();
+    final filtered  = <Map<String, dynamic>>[];
+
+    for (final topic in allTopics) {
+      final filteredLessons = topic.lessons.where((lesson) {
+        final pd       = _lessonProgress(lesson.id);
+        final progress = (pd['progress'] as double?) ?? 0.0;
+
+        final matchesSearch = searchTerm.isEmpty ||
             lesson.title.toLowerCase().contains(searchTerm.toLowerCase()) ||
             topic.title.toLowerCase().contains(searchTerm.toLowerCase());
-        
-        bool matchesFilter = filterType == 'all' ||
-            (filterType == 'completed' && progress >= 90) ||
+
+        final matchesFilter = filterType == 'all' ||
+            (filterType == 'completed'   && progress >= 90) ||
             (filterType == 'in-progress' && progress > 0 && progress < 90) ||
             (filterType == 'not-started' && progress == 0);
-        
-        if (matchesSearch && matchesFilter) {
-          filteredLessons.add(lesson);
-        }
-      }
-      
+
+        return matchesSearch && matchesFilter;
+      }).toList();
+
       if (filteredLessons.isNotEmpty) {
-        filteredTopics.add(Topic(
-          id: topic.id,
-          title: topic.title,
-          lessons: filteredLessons,
-          isExpanded: _expandedTopics[topic.id] ?? false,
-        ));
+        filtered.add({'topic': topic, 'lessons': filteredLessons});
       }
     }
-    
-    if (filteredTopics.isEmpty) {
+
+    if (filtered.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -30343,42 +23328,30 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: dashboardYellow, width: 2),
               ),
-              child: Icon(
-                Icons.search_off,
-                size: 50,
-                color: dashboardYellow,
-              ),
+              child: Icon(Icons.search_off, size: 50, color: dashboardYellow),
             ),
             const SizedBox(height: 16),
-            Text(
-              'No lessons match your filters',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-              ),
-            ),
+            Text('No lessons match your filters',
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade600)),
           ],
         ),
       );
     }
-    
+
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: filteredTopics.length,
+      itemCount: filtered.length,
       itemBuilder: (context, index) {
-        final topic = filteredTopics[index];
-        final topicProgress = getTopicProgressData(topic.id);
+        final topic      = filtered[index]['topic']   as Topic;
+        final lessons    = filtered[index]['lessons'] as List<Lesson>;
+        final tp         = _topicProgress(topic.id);
         final topicColor = getTopicColor(topic.title);
-        
+
         return Column(
           children: [
-            // Topic Header
-            _buildTopicHeader(topic, topicProgress, topicColor),
-            
-            // Topic Content (expanded)
+            _buildTopicHeader(topic, tp, topicColor),
             if (_expandedTopics[topic.id] ?? false)
-              ...topic.lessons.map((lesson) => _buildLessonCard(lesson)).toList(),
-            
+              ...lessons.map(_buildLessonCard).toList(),
             const SizedBox(height: 16),
           ],
         );
@@ -30386,10 +23359,11 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     );
   }
 
-  // Build topic header with FIXED circle alignment for 0%
-  Widget _buildTopicHeader(Topic topic, Map<String, dynamic> topicProgress, Color topicColor) {
-    final progress = topicProgress['averageProgress'] as double;
-    
+  // ── Topic header ─────────────────────────────────────────
+  Widget _buildTopicHeader(
+      Topic topic, Map<String, dynamic> tp, Color topicColor) {
+    final progress = (tp['averageProgress'] as double?) ?? 0.0;
+
     return GestureDetector(
       onTap: () => toggleTopic(topic.id),
       child: Container(
@@ -30401,15 +23375,14 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
           border: Border.all(color: Colors.black, width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
-            ),
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 6,
+                offset: const Offset(0, 3)),
           ],
         ),
         child: Row(
           children: [
-            // Topic icon/indicator
+            // Number badge
             Container(
               width: 50,
               height: 50,
@@ -30420,17 +23393,14 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
               ),
               child: Center(
                 child: Text(
-                  topic.title.split(' ')[0], // Get the number (e.g., "1.")
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                  topic.title.split(' ')[0],
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
             ),
             const SizedBox(width: 15),
-            
-            // Topic info
+
+            // Title + sub-info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -30438,64 +23408,56 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                   Text(
                     topic.title,
                     style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${topic.lessons.length} lessons • ${topicProgress['completedVideos']}/${topicProgress['totalVideos']} videos',
+                    '${topic.lessons.length} lessons • '
+                    '${(tp['completedVideos'] ?? 0)}/${(tp['totalVideos'] ?? 0)} videos',
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.black.withOpacity(0.7),
-                    ),
+                        fontSize: 12, color: Colors.black.withOpacity(0.7)),
                   ),
                 ],
               ),
             ),
-            
-            // Progress indicator and expand icon - FIXED ALIGNMENT
+
+            // Progress circle + chevron
             Row(
               children: [
-                // Progress circle - Properly centered
                 SizedBox(
                   width: 45,
                   height: 45,
                   child: Stack(
-                    alignment: Alignment.center, // Centers all children
+                    alignment: Alignment.center,
                     children: [
-                      // Background circle (always visible)
                       Container(
                         width: 45,
                         height: 45,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white.withOpacity(0.5),
-                          border: progress == 0 
+                          border: progress == 0
                               ? Border.all(color: Colors.grey.shade400, width: 1)
                               : null,
                         ),
                       ),
-                      // Progress indicator - only show if > 0
                       if (progress > 0)
                         CircularProgressIndicator(
                           value: progress / 100,
                           backgroundColor: Colors.transparent,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            getProgressColor(progress),
-                          ),
+                              getProgressColor(progress)),
                           strokeWidth: 4,
                         ),
-                      // Percentage text - always centered
                       Center(
                         child: Text(
                           '${progress.toInt()}%',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black),
                         ),
                       ),
                     ],
@@ -30503,8 +23465,8 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                 ),
                 const SizedBox(width: 8),
                 Icon(
-                  (_expandedTopics[topic.id] ?? false) 
-                      ? Icons.keyboard_arrow_up 
+                  (_expandedTopics[topic.id] ?? false)
+                      ? Icons.keyboard_arrow_up
                       : Icons.keyboard_arrow_down,
                   color: Colors.black,
                   size: 24,
@@ -30517,19 +23479,22 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     );
   }
 
-  // Build lesson card
+  // ── Lesson card ──────────────────────────────────────────
   Widget _buildLessonCard(Lesson lesson) {
-    final progressData = getLessonProgressData(lesson.id);
-    final progress = progressData['progress'] as double;
-    final averageScore = progressData['average_score'] as double;
-    final subtopics = progressData['subtopics'] as List<String>;
-    final subtopicCount = progressData['subtopicCount'] as int;
-    final completedSubtopicCount = progressData['completedSubtopicCount'] as int;
-    final subtopicProgress = progressData['subtopicProgress'] as Map<String, Map<String, dynamic>>;
-    final exerciseScores = progressData['exerciseScores'] as List<Map<String, dynamic>>;
-    final isExpanded = _expandedLessons[lesson.id] ?? false;
-    final lessonColor = getLessonColor(lesson.title);
-    
+    final pd           = _lessonProgress(lesson.id);
+    final progress     = (pd['progress']      as double?) ?? 0.0;
+    final avgScore     = (pd['average_score'] as double?) ?? 0.0;
+    final subtopics    = (pd['subtopics']     as List<String>?) ?? [];
+    final subCount     = (pd['subtopicCount'] as int?)    ?? 0;
+    final compSubCount = (pd['completedSubtopicCount'] as int?) ?? 0;
+    final subProg      = (pd['subtopicProgress']
+            as Map<String, Map<String, dynamic>>?) ??
+        {};
+    final exScores     =
+        (pd['exerciseScores'] as List<Map<String, dynamic>>?) ?? [];
+    final isExpanded   = _expandedLessons[lesson.id] ?? false;
+    final lessonColor  = getLessonColor(lesson.title);
+
     return Container(
       margin: const EdgeInsets.only(left: 16, bottom: 8),
       decoration: BoxDecoration(
@@ -30538,17 +23503,17 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
         border: Border.all(color: Colors.grey.shade300, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
         children: [
-          // Lesson header
+          // Lesson header row
           ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             leading: Container(
               width: 40,
               height: 40,
@@ -30560,82 +23525,50 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
               child: Center(
                 child: Text(
                   '${progress.toInt()}%',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
-            title: Text(
-              lesson.title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
+            title: Text(lesson.title,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: topicsBlue.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: topicsBlue),
-                      ),
-                      child: Text(
-                        '${progressData['videos_completed']}/${progressData['videoCount']} videos',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
+                    _tag(
+                        '${pd['videos_completed'] ?? 0}/${pd['videoCount'] ?? 0} videos',
+                        topicsBlue),
                     const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: topicsGreen.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: topicsGreen),
-                      ),
-                      child: Text(
-                        '${progressData['exercises_completed']}/${progressData['exerciseCount']} exercises',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
+                    _tag(
+                        '${pd['exercises_completed'] ?? 0}/${pd['exerciseCount'] ?? 0} exercises',
+                        topicsGreen),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$completedSubtopicCount/$subtopicCount subtopics completed',
+                  '$compSubCount/$subCount subtopics completed',
                   style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
+                      fontSize: 11, color: Colors.grey.shade600),
                 ),
               ],
             ),
             trailing: IconButton(
               icon: Icon(
-                isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                isExpanded
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
                 size: 20,
                 color: Colors.black,
               ),
               onPressed: () => toggleLesson(lesson.id),
             ),
           ),
-          
-          // Expanded subtopics section
+
+          // Expanded detail section
           if (isExpanded)
             Container(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -30643,81 +23576,82 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Divider(),
-                  
+
                   // Subtopics header
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Subtopics ($completedSubtopicCount/$subtopicCount)',
+                        'Subtopics ($compSubCount/$subCount)',
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: lessonColor,
-                        ),
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: lessonColor),
                       ),
-                      if (averageScore > 0)
+                      if (avgScore > 0)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: getScoreColor(averageScore).withOpacity(0.1),
+                            color:
+                                getScoreColor(avgScore).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: getScoreColor(averageScore)),
+                            border:
+                                Border.all(color: getScoreColor(avgScore)),
                           ),
                           child: Text(
-                            '${averageScore.toInt()}% avg',
+                            '${avgScore.toInt()}% avg',
                             style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: getScoreColor(averageScore),
-                            ),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: getScoreColor(avgScore)),
                           ),
                         ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  
-                  // List ALL subtopics with proper status
-                  ...subtopics.map((subtopic) => _buildSubtopicItem(
-                    subtopic, 
-                    subtopicProgress[subtopic] ?? {
-                      'completed': false,
-                      'video_completed': false,
-                      'exercise_completed': false,
-                      'score': null,
-                      'percentage': 0.0,
-                      'attempts': 0,
-                      'status': 'Not Started',
-                      'scores': [],
-                      'last_score': null,
-                    },
-                    lessonColor,
-                  )),
-                  
+
+                  // Subtopic rows
+                  ...subtopics.map((sub) => _buildSubtopicItem(
+                        sub,
+                        subProg[sub] ??
+                            {
+                              'completed': false,
+                              'video_completed': false,
+                              'exercise_completed': false,
+                              'score': null,
+                              'percentage': 0.0,
+                              'attempts': 0,
+                              'status': 'Not Started',
+                              'scores': <Map<String, dynamic>>[],
+                              'last_score': null,
+                            },
+                        lessonColor,
+                      )),
+
                   // Recent exercise scores
-                  if (exerciseScores.isNotEmpty) ...[
+                  if (exScores.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(4)),
                       child: Text(
                         'Recent Attempts',
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700,
-                        ),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade700),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    ...exerciseScores.take(3).map((score) => _buildScoreItem(score)),
+                    ...exScores.take(3).map(_buildScoreItem),
                   ],
-                  
-                  // Best score if available
-                  if (progressData['best_score'] > 0) ...[
+
+                  // Best score badge
+                  if ((pd['best_score'] as double? ?? 0) > 0) ...[
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(8),
@@ -30727,35 +23661,31 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                         border: Border.all(color: dashboardYellow),
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Icon(Icons.emoji_events, color: dashboardYellow, size: 18),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Best Score',
+                          Row(children: [
+                            Icon(Icons.emoji_events,
+                                color: dashboardYellow, size: 18),
+                            const SizedBox(width: 8),
+                            const Text('Best Score',
                                 style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600)),
+                          ]),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: dashboardYellow),
-                            ),
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                    color: dashboardYellow)),
                             child: Text(
-                              '${(progressData['best_score'] as double).toInt()}%',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
+                              '${(pd['best_score'] as double).toInt()}%',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
@@ -30770,29 +23700,33 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     );
   }
 
-  // Build subtopic item with proper status
-  Widget _buildSubtopicItem(String subtopic, Map<String, dynamic> progress, Color lessonColor) {
-    final bool videoCompleted = progress['video_completed'] ?? false;
-    final bool exerciseCompleted = progress['exercise_completed'] ?? false;
-    final double score = progress['score'] ?? 0.0;
-    final int attempts = progress['attempts'] ?? 0;
-    final String? lastScore = progress['last_score'];
-    
-    // Determine status text and color
-    String statusText = 'Not Started';
-    Color statusColor = Colors.grey;
-    Color statusIconColor = Colors.grey;
-    
-    if (videoCompleted) {
-      statusText = 'Completed';
-      statusColor = Colors.green;
-      statusIconColor = Colors.green;
-    } else if (exerciseCompleted) {
-      statusText = 'Exercises Done';
-      statusColor = Colors.blue;
-      statusIconColor = Colors.blue;
-    }
-    
+  // ── Small tag pill ───────────────────────────────────────
+  Widget _tag(String label, Color color) => Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color),
+        ),
+        child: Text(label,
+            style: const TextStyle(fontSize: 10, color: Colors.black)),
+      );
+
+  // ── Subtopic row ─────────────────────────────────────────
+  Widget _buildSubtopicItem(String subtopic,
+      Map<String, dynamic> progress, Color lessonColor) {
+    final bool videoCompleted    = progress['video_completed']    == true;
+    final bool exerciseCompleted = progress['exercise_completed'] == true;
+    final double score    = (progress['score'] as double?) ?? 0.0;
+    final int    attempts = (progress['attempts'] as int?)  ?? 0;
+    final String? lastScore = progress['last_score'] as String?;
+
+    String statusText  = 'Not Started';
+    Color  statusColor = Colors.grey;
+    if (videoCompleted)    { statusText = 'Completed';      statusColor = Colors.green; }
+    else if (exerciseCompleted) { statusText = 'Exercises Done'; statusColor = Colors.blue; }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -30803,25 +23737,30 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
       ),
       child: Row(
         children: [
-          // Status icon
+          // Status dot
           Container(
             width: 20,
             height: 20,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: videoCompleted ? Colors.green : (exerciseCompleted ? Colors.blue : Colors.grey.shade300),
+              color: videoCompleted
+                  ? Colors.green
+                  : (exerciseCompleted ? Colors.blue : Colors.grey.shade300),
               border: Border.all(
-                color: videoCompleted ? Colors.green : (exerciseCompleted ? Colors.blue : Colors.grey.shade500),
-                width: 2,
-              ),
+                  color: videoCompleted
+                      ? Colors.green
+                      : (exerciseCompleted
+                          ? Colors.blue
+                          : Colors.grey.shade500),
+                  width: 2),
             ),
-            child: videoCompleted || exerciseCompleted
+            child: (videoCompleted || exerciseCompleted)
                 ? const Icon(Icons.check, size: 12, color: Colors.white)
                 : null,
           ),
           const SizedBox(width: 8),
-          
-          // Subtopic name and status
+
+          // Name + status
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -30829,100 +23768,83 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                 Text(
                   subtopic,
                   style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: (videoCompleted || exerciseCompleted) ? FontWeight.w600 : FontWeight.normal,
-                    color: (videoCompleted || exerciseCompleted) ? Colors.black : Colors.grey.shade600,
-                  ),
+                      fontSize: 12,
+                      fontWeight: (videoCompleted || exerciseCompleted)
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                      color: (videoCompleted || exerciseCompleted)
+                          ? Colors.black
+                          : Colors.grey.shade600),
                 ),
-                Text(
-                  statusText,
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: statusColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                Text(statusText,
+                    style: TextStyle(
+                        fontSize: 9,
+                        color: statusColor,
+                        fontWeight: FontWeight.w500)),
               ],
             ),
           ),
-          
-          // Score if completed
-          if (videoCompleted || exerciseCompleted)
-            Row(
-              children: [
-                if (lastScore != null && lastScore.isNotEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.blue.shade300),
-                    ),
-                    child: Text(
-                      lastScore,
-                      style: TextStyle(
+
+          // Score tags
+          if (videoCompleted || exerciseCompleted) ...[
+            if (lastScore != null && lastScore.isNotEmpty) ...[
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.blue.shade300)),
+                child: Text(lastScore,
+                    style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: Colors.blue.shade700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                ],
-                if (score > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: getScoreColor(score).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: getScoreColor(score)),
-                    ),
-                    child: Text(
-                      '${score.toInt()}%',
-                      style: TextStyle(
+                        color: Colors.blue.shade700)),
+              ),
+              const SizedBox(width: 4),
+            ],
+            if (score > 0)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                    color: getScoreColor(score).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: getScoreColor(score))),
+                child: Text('${score.toInt()}%',
+                    style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: getScoreColor(score),
-                      ),
-                    ),
-                  ),
-              ],
-            )
-          else
+                        color: getScoreColor(score))),
+              ),
+          ] else
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.grey.shade400),
-              ),
-              child: Text(
-                'Not started',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey.shade600,
-                ),
-              ),
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.grey.shade400)),
+              child: Text('Not started',
+                  style: TextStyle(
+                      fontSize: 10, color: Colors.grey.shade600)),
             ),
-          
+
           // Attempts count
           if (attempts > 0) ...[
             const SizedBox(width: 4),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.purple.shade50,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.purple.shade300),
-              ),
-              child: Text(
-                '$attempts',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.purple.shade700,
-                ),
-              ),
+                  color: Colors.purple.shade50,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.purple.shade300)),
+              child: Text('$attempts',
+                  style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.purple.shade700)),
             ),
           ],
         ],
@@ -30930,14 +23852,15 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     );
   }
 
-  // Build exercise score item
+  // ── Exercise score row ───────────────────────────────────
   Widget _buildScoreItem(Map<String, dynamic> score) {
-    final int scoreValue = score['score'] as int;
-    final int totalQuestions = score['total_questions'] as int;
-    final double percentage = score['percentage'] as double;
-    final String exerciseType = score['exercise_type'] as String;
-    final DateTime completedAt = DateTime.parse(score['completed_at'] as String);
-    
+    final int    scoreValue    = score['score']           as int;
+    final int    totalQ        = score['total_questions'] as int;
+    final double percentage    = score['percentage']      as double;
+    final String exerciseType  = score['exercise_type']   as String;
+    final DateTime completedAt =
+        DateTime.parse(score['completed_at'] as String);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(8),
@@ -30948,7 +23871,6 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
       ),
       child: Row(
         children: [
-          // Score circle
           Container(
             width: 36,
             height: 36,
@@ -30958,98 +23880,64 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
               border: Border.all(color: getScoreColor(percentage), width: 2),
             ),
             child: Center(
-              child: Text(
-                '$scoreValue',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: getScoreColor(percentage),
-                ),
-              ),
+              child: Text('$scoreValue',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: getScoreColor(percentage))),
             ),
           ),
           const SizedBox(width: 10),
-          
-          // Score details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  exerciseType,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(exerciseType,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Icon(Icons.calendar_today, size: 10, color: Colors.grey.shade500),
-                    const SizedBox(width: 4),
-                    Text(
-                      _formatDate(completedAt),
+                Row(children: [
+                  Icon(Icons.calendar_today,
+                      size: 10, color: Colors.grey.shade500),
+                  const SizedBox(width: 4),
+                  Text(_formatDate(completedAt),
                       style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 4,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade400,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${percentage.toInt()}%',
+                          fontSize: 10, color: Colors.grey.shade600)),
+                  const SizedBox(width: 8),
+                  Text('${percentage.toInt()}%',
                       style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: getScoreColor(percentage),
-                      ),
-                    ),
-                  ],
-                ),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: getScoreColor(percentage))),
+                ]),
               ],
             ),
           ),
-          
-          // Score as fraction
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: Colors.grey.shade400),
-            ),
-            child: Text(
-              '$scoreValue/$totalQuestions',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
-              ),
-            ),
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.grey.shade400)),
+            child: Text('$scoreValue/$totalQ',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800)),
           ),
         ],
       ),
     );
   }
 
-  // Format date to readable format
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date).inDays;
-    
-    if (difference == 0) return 'Today';
-    if (difference == 1) return 'Yesterday';
-    if (difference < 7) return '$difference days ago';
+    final diff = DateTime.now().difference(date).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    if (diff < 7)  return '$diff days ago';
     return '${date.month}/${date.day}';
   }
 }

@@ -3,56 +3,43 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 class ApiService {
-  // Your WiFi IP address for physical device testing
-  static const String _localIP = '192.168.1.138';
-  
-  // Base URL configuration
+  // Base URL configuration - Railway deployed backend
   static String get baseUrl {
-    return 'http://$_localIP:3001/api';
+    return 'https://senyamtikaback-production.up.railway.app/api';
   }
 
   static String? _token;
 
-  // Set authentication token
   static void setToken(String token) {
     _token = token;
   }
 
-  // Get authentication token
   static String? getToken() {
     return _token;
   }
 
-  // Clear token (logout)
   static void clearToken() {
     _token = null;
   }
 
-  // Set student ID (used as authentication)
   static void setStudentId(String studentId) {
     _token = studentId;
   }
 
-  // Get current student ID
   static String? getStudentId() {
     return _token;
   }
 
-  // Clear student ID (logout)
   static void clearStudentId() {
     _token = null;
   }
 
-  // Get headers
   static Map<String, String> _getHeaders() {
     return {
       'Content-Type': 'application/json',
     };
   }
 
-  // ============ ADDED: register() - for main.dart compatibility ============
-  /// Register a new user (local app uses LocalAuthService, but this provides
-  /// backend sync if available)
   static Future<Map<String, dynamic>> register({
     required String email,
     required String password,
@@ -86,8 +73,6 @@ class ApiService {
     }
   }
 
-  // ============ ADDED: login() - for main.dart compatibility ============
-  /// Login with email and password
   static Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -115,8 +100,6 @@ class ApiService {
     }
   }
 
-  // ============ ADDED: getProgress() - for main.dart compatibility ============
-  /// Get progress for the currently logged-in user
   static Future<Map<String, dynamic>> getProgress() async {
     try {
       final studentId = getStudentId();
@@ -142,9 +125,6 @@ class ApiService {
     }
   }
 
-  // ============ AUTH ENDPOINTS ============
-
-  /// Verify student ID exists in the system
   static Future<Map<String, dynamic>> verifyStudentId(String studentId) async {
     try {
       final response = await http.get(
@@ -165,9 +145,6 @@ class ApiService {
     }
   }
 
-  // ============ LESSON ENDPOINTS ============
-
-  /// Get all lessons with subtopics
   static Future<Map<String, dynamic>> getLessons() async {
     try {
       final response = await http.get(
@@ -188,7 +165,6 @@ class ApiService {
     }
   }
 
-  /// Get single lesson by ID
   static Future<Map<String, dynamic>> getLesson(String lessonId) async {
     try {
       final response = await http.get(
@@ -209,7 +185,6 @@ class ApiService {
     }
   }
 
-  /// Get all assessments
   static Future<Map<String, dynamic>> getAllAssessments() async {
     try {
       final response = await http.get(
@@ -230,9 +205,6 @@ class ApiService {
     }
   }
 
-  // ============ STUDENT PROGRESS ENDPOINTS ============
-
-  /// Get student info by ID
   static Future<Map<String, dynamic>> getStudent(String studentId) async {
     try {
       final response = await http.get(
@@ -253,7 +225,6 @@ class ApiService {
     }
   }
 
-  /// Get student progress
   static Future<Map<String, dynamic>> getStudentProgress(String studentId) async {
     try {
       final response = await http.get(
@@ -274,7 +245,6 @@ class ApiService {
     }
   }
 
-  /// Record student progress (subtopic completion)
   static Future<Map<String, dynamic>> recordProgress({
     required String studentId,
     required String lessonId,
@@ -306,7 +276,6 @@ class ApiService {
     }
   }
 
-  /// Record assessment score
   static Future<Map<String, dynamic>> recordAssessmentScore({
     required String studentId,
     required String assessmentId,
@@ -338,7 +307,6 @@ class ApiService {
     }
   }
 
-  /// Log student engagement
   static Future<Map<String, dynamic>> logEngagement({
     required String studentId,
     required int sessionDuration,
@@ -370,7 +338,6 @@ class ApiService {
     }
   }
 
-  /// Sync multiple progress items (batch update)
   static Future<Map<String, dynamic>> syncProgress(
       List<Map<String, dynamic>> progressItems) async {
     try {
@@ -409,9 +376,6 @@ class ApiService {
     }
   }
 
-  // ============ HEALTH CHECK ============
-
-  /// Check if API is reachable
   static Future<bool> checkHealth() async {
     try {
       final response = await http.get(

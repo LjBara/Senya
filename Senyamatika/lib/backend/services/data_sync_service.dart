@@ -147,93 +147,119 @@ class DataSyncService {
     }
   }
 
-  // ./// Upload local progress to backend
-static Future<Map<String, dynamic>> uploadProgress({
-  required String studentId,
-  required String lessonId,
-  required String subtopicId,
-  required bool completed,
-}) async {
-  try {
-    if (!await isBackendAvailable()) {
-      debugPrint('⚠️ Backend not available, progress saved locally only');
+  /// Upload local progress to backend
+  static Future<Map<String, dynamic>> uploadProgress({
+    required String studentId,
+    required String lessonId,
+    required String subtopicId,
+    required bool completed,
+  }) async {
+    try {
+      if (!await isBackendAvailable()) {
+        debugPrint('⚠️ Backend not available, progress saved locally only');
+        return {
+          'success': true,
+          'localOnly': true,
+          'message': 'Progress saved locally, will sync when online'
+        };
+      }
+
+      final result = await ApiService.recordProgress(
+        studentId: studentId,
+        lessonId: lessonId,
+        subtopicId: subtopicId,
+        completed: completed,
+      );
+
+      if (result['success'] == true) {
+        debugPrint('✅ Progress uploaded to backend');
+        return result;
+      } else {
+        debugPrint('⚠️ Failed to upload progress: ${result['error']}');
+        return {
+          'success': true,
+          'localOnly': true,
+          'message': 'Progress saved locally, upload failed'
+        };
+      }
+    } catch (e) {
+      debugPrint('❌ Error uploading progress: $e');
       return {
         'success': true,
         'localOnly': true,
         'message': 'Progress saved locally, will sync when online'
       };
     }
-
-    final result = await ApiService.recordProgress(
-      studentId: studentId,
-      lessonId: lessonId,
-      subtopicId: subtopicId,
-      completed: completed,
-    );
-
-    if (result['success'] == true) {
-      debugPrint('✅ Progress uploaded to backend');
-      return result;
-    } else {
-      debugPrint('⚠️ Failed to upload progress: ${result['error']}');
-      return {
-        'success': true,
-        'localOnly': true,
-        'message': 'Progress saved locally, upload failed'
-      };
-    }
-  } catch (e) {
-    debugPrint('❌ Error uploading progress: $e');
-    return {
-      'success': true,
-      'localOnly': true,
-      'message': 'Progress saved locally, will sync when online'
-    };
   }
-}
 
-/// Upload assessment score to backend
-static Future<Map<String, dynamic>> uploadAssessmentScore({
-  required String studentId,
-  required String assessmentId,
-  required int score,
-  required int maxScore,
-}) async {
-  try {
-    if (!await isBackendAvailable()) {
-      debugPrint('⚠️ Backend not available, score saved locally only');
+  /// Upload assessment score to backend
+  static Future<Map<String, dynamic>> uploadAssessmentScore({
+    required String studentId,
+    required String assessmentId,
+    required int score,
+    required int maxScore,
+  }) async {
+    try {
+      if (!await isBackendAvailable()) {
+        debugPrint('⚠️ Backend not available, score saved locally only');
+        return {
+          'success': true,
+          'localOnly': true,
+          'message': 'Score saved locally, will sync when online'
+        };
+      }
+
+      final result = await ApiService.recordAssessmentScore(
+        studentId: studentId,
+        assessmentId: assessmentId,
+        score: score,
+        maxScore: maxScore,
+      );
+
+      if (result['success'] == true) {
+        debugPrint('✅ Assessment score uploaded to backend');
+        return result;
+      } else {
+        debugPrint('⚠️ Failed to upload score: ${result['error']}');
+        return {
+          'success': true,
+          'localOnly': true,
+          'message': 'Score saved locally, upload failed'
+        };
+      }
+    } catch (e) {
+      debugPrint('❌ Error uploading score: $e');
       return {
         'success': true,
         'localOnly': true,
         'message': 'Score saved locally, will sync when online'
       };
     }
-
-    final result = await ApiService.recordAssessmentScore(
-      studentId: studentId,
-      assessmentId: assessmentId,
-      score: score,
-      maxScore: maxScore,
-    );
-
-    if (result['success'] == true) {
-      debugPrint('✅ Assessment score uploaded to backend');
-      return result;
-    } else {
-      debugPrint('⚠️ Failed to upload score: ${result['error']}');
-      return {
-        'success': true,
-        'localOnly': true,
-        'message': 'Score saved locally, upload failed'
-      };
-    }
-  } catch (e) {
-    debugPrint('❌ Error uploading score: $e');
-    return {
-      'success': true,
-      'localOnly': true,
-      'message': 'Score saved locally, will sync when online'
-    };
   }
-}
+
+  /// Log engagement to backend
+  static Future<void> logEngagement({
+    required String studentId,
+    required int sessionDuration,
+    required int lessonsAccessed,
+    required String activityType,
+  }) async {
+    try {
+      if (!await isBackendAvailable()) {
+        debugPrint('⚠️ Backend not available, engagement not logged');
+        return;
+      }
+
+      await ApiService.logEngagement(
+        studentId: studentId,
+        sessionDuration: sessionDuration,
+        lessonsAccessed: lessonsAccessed,
+        activityType: activityType,
+      );
+
+      debugPrint('✅ Engagement logged to backend');
+    } catch (e) {
+      debugPrint('❌ Failed to log engagement: $e');
+    }
+  }
 }

@@ -29,7 +29,7 @@ class LocalAuthService {
   }) async {
     try {
       print('📝 Attempting registration for: $email');
-      
+
       // Check if user already exists
       final existingUser = await _storage.getUserByEmail(email);
       if (existingUser != null) {
@@ -77,26 +77,26 @@ class LocalAuthService {
   }) async {
     try {
       print('🔐 Attempting login for: $email');
-      
+
       // Get user
       final user = await _storage.getUserByEmail(email);
       if (user == null) {
         print('❌ User not found: $email');
         throw Exception('Invalid email or password');
       }
-      
+
       print('✓ User found: ${user.name}');
 
       // Verify password
       final passwordHash = _hashPassword(password);
       print('🔑 Checking password hash...');
       final isValid = await _storage.verifyCredentials(email, passwordHash);
-      
+
       if (!isValid) {
         print('❌ Password verification failed');
         throw Exception('Invalid email or password');
       }
-      
+
       print('✓ Password verified successfully');
 
       // Update last login
@@ -106,13 +106,12 @@ class LocalAuthService {
 
       // Set as current user
       await _storage.setCurrentUser(user.uid);
-      
+
       print('✅ Login successful for: ${user.email}');
 
       return user;
     } catch (e) {
       print('❌ Login error: $e');
-      // Re-throw with generic message for security
       if (e.toString().contains('Invalid email or password')) {
         rethrow;
       }
@@ -124,7 +123,7 @@ class LocalAuthService {
   Future<UserModel?> getCurrentUser() async {
     final uid = _storage.getCurrentUserId();
     if (uid == null) return null;
-    
+
     return await _storage.getUser(uid);
   }
 
@@ -133,7 +132,29 @@ class LocalAuthService {
     await _storage.clearCurrentUser();
   }
 
-  /// Update user profile
+  /// Update user profile (name, school, section) — persists to Hive
+  /// Call this from EditProfileScreen to ensure changes survive restarts.
+  Future<void> updateUserProfile({
+    required String email,
+    required String name,
+    String? school,
+    String? section,
+  }) async {
+    final user = await _storage.getUserByEmail(email);
+    if (user == null) {
+      throw Exception('User not found');
+    }
+
+    await _storage.updateUser(user.uid, {
+      'name': name,
+      if (school != null) 'school': school,
+      if (section != null) 'section': section,
+    });
+
+    print('✅ Profile updated in Hive for: $email');
+  }
+
+  /// Update user profile using current logged-in user (no email needed)
   Future<void> updateProfile({
     String? name,
     String? school,
@@ -159,7 +180,7 @@ class LocalAuthService {
     await _storage.clearCurrentUser();
   }
 
-  /// Reset password (for local, just update)
+  /// Reset password (updates stored hash)
   Future<void> resetPassword(String email, String newPassword) async {
     final user = await _storage.getUserByEmail(email);
     if (user == null) {

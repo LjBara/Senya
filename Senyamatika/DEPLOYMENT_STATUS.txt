@@ -136,7 +136,7 @@ Admin:
 
   Computer IP:    192.168.1.138
   Backend Port:   3000
-  API URL:        http://192.168.1.138:3000/api
+  API URL:        https://senyamtikaback-production.up.railway.app/api
   Database:       backend/senyamatika.db
   Protocol:       HTTP (local network)
 
