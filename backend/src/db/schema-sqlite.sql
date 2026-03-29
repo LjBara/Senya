@@ -121,6 +121,14 @@ CREATE TABLE IF NOT EXISTS engagement_logs (
     created_at TEXT DEFAULT (datetime('now'))
 );
 
+-- AI-generated quizzes (debug / analytics)
+CREATE TABLE IF NOT EXISTS generated_quizzes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lesson_id TEXT,
+    questions_json TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
 -- Admins table
 CREATE TABLE IF NOT EXISTS admins (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),

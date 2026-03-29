@@ -7,6 +7,7 @@ import studentRoutes from './routes/student.routes.js';
 import lessonRoutes from './routes/lesson.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import reportRoutes from './routes/report.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 
 dotenv.config();
 
@@ -19,8 +20,10 @@ app.use(cors({
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
-    // Allow localhost and local network IPs
+    // Allow localhost and local network IPs (any port for Flutter web / Vite / etc.)
     const allowedOrigins = [
+      /^http:\/\/localhost(:\d+)?$/,
+      /^http:\/\/127\.0\.0\.1(:\d+)?$/,
       'http://localhost:5173',
       'http://localhost:3000',
       'http://127.0.0.1:5173',
@@ -31,7 +34,25 @@ app.use(cors({
     const isAllowed = allowedOrigins.some(allowed => 
       allowed instanceof RegExp ? allowed.test(origin) : allowed === origin
     );
-    
+    // #region agent log
+    if (origin && !isAllowed) {
+      fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Debug-Session-Id': '78613b',
+        },
+        body: JSON.stringify({
+          sessionId: '78613b',
+          hypothesisId: 'H1',
+          location: 'server.ts:cors',
+          message: 'origin rejected by cors',
+          data: { origin },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    }
+    // #endregion
     callback(null, isAllowed);
   },
   credentials: true
@@ -57,6 +78,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/lessons', lessonRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

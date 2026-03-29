@@ -15,6 +15,8 @@ import 'package:senyamatika_math_app/backend/services/database_seeder.dart';
 import 'package:senyamatika_math_app/backend/services/sign_language_service.dart';
 import 'package:senyamatika_math_app/backend/services/user_provider.dart' as backend;
 import 'package:senyamatika_math_app/backend/services/api_service.dart';
+import 'package:senyamatika_math_app/backend/services/ai_quiz_service.dart';
+import 'package:senyamatika_math_app/backend/services/dev_student_bootstrap.dart';
 import 'package:senyamatika_math_app/backend/services/data_sync_service.dart';
 
 // ============ LEGACY USER DATA (Kept for backward compatibility) ============
@@ -174,14 +176,41 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 2000), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const FrontPageScreen()),
-        );
-      }
-    });
+    _navigateAfterSplash();
+  }
+
+  Future<void> _navigateAfterSplash() async {
+    await Future.delayed(const Duration(milliseconds: 2000));
+    if (!mounted) return;
+
+    final devUser = await DevStudentBootstrap.ensureDebugStudent();
+    if (devUser != null) {
+      UserProvider.setUser(UserData(
+        name: devUser.name,
+        email: devUser.email,
+        school: devUser.school,
+        section: devUser.section,
+      ));
+      progressManager.setCurrentUser(devUser.uid);
+      ApiService.setStudentId(devUser.uid);
+      if (!mounted) return;
+      try {
+        await Provider.of<backend.UserProvider>(context, listen: false)
+            .loadUserData(devUser.uid);
+      } catch (_) {}
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const FrontPageScreen()),
+    );
   }
 
   @override
@@ -11053,16 +11082,17 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
   int _currentQuestion = 0;
   int _score = 0;
   bool _exerciseCompleted = false;
-  List<dynamic> _userAnswers = List.filled(15, null);
-  List<bool> _answeredQuestions = List.filled(15, false);
+  List<dynamic> _userAnswers = [];
+  List<bool> _answeredQuestions = [];
 
   List<String> _dragItems = [];
   List<String> _dragTargets = [];
   Map<int, Map<int, int>> _matchingSelections = {};
   Map<int, Map<int, String>> _sequenceFilledBlanks = {};
   bool _dragItemsInitialized = false;
+  bool _aiQuizLoading = false;
 
-  final List<Map<String, dynamic>> _questions = [
+  static final List<Map<String, dynamic>> _seedQuestions = [
     {
       'id': 1,
       'type': 'multiple_choice',
@@ -11193,9 +11223,14 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
     },
   ];
 
+  List<Map<String, dynamic>> _questions = [];
+
   @override
   void initState() {
     super.initState();
+    _questions = _seedQuestions.map((q) => Map<String, dynamic>.from(q)).toList();
+    _userAnswers = List.filled(_questions.length, null);
+    _answeredQuestions = List.filled(_questions.length, false);
     _initQuestion();
   }
 
@@ -11383,6 +11418,120 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       return _checkDragDropAnswer(answer as List<String>, question['correctAnswer']);
     }
     return false;
+  }
+
+  bool _wasCorrectAt(int index) {
+    if (index < 0 || index >= _questions.length) return false;
+    final question = _questions[index];
+    final answer = _userAnswers[index];
+    if (answer == null) return false;
+    if (question['type'] == 'multiple_choice' || question['type'] == 'circle_answer') {
+      return answer == question['correctAnswer'];
+    } else if (question['type'] == 'fill_blank' || question['type'] == 'write_number') {
+      return answer.toString().trim() == question['correctAnswer'].toString();
+    } else if (question['type'] == 'true_false') {
+      return answer == question['correctAnswer'];
+    } else if (question['type'] == 'matching') {
+      return _checkMatchingAnswer(answer as Map<int, int>, question['correctMatches']);
+    } else if (question['type'] == 'drag_drop') {
+      return _checkDragDropAnswer(answer as List<String>, question['correctAnswer']);
+    }
+    return false;
+  }
+
+  List<int> _incorrectQuestionIndices() {
+    final ix = <int>[];
+    for (var i = 0; i < _questions.length; i++) {
+      if (!_wasCorrectAt(i)) ix.add(i);
+    }
+    return ix;
+  }
+
+  List<Map<String, dynamic>> _incorrectQuestionMaps() {
+    return _incorrectQuestionIndices().map((i) => Map<String, dynamic>.from(_questions[i])).toList();
+  }
+
+  List<Map<String, dynamic>> _mergeWithGenerated(List<Map<String, dynamic>> gen) {
+    final merged = <Map<String, dynamic>>[];
+    var genI = 0;
+    for (var i = 0; i < _questions.length; i++) {
+      if (_wasCorrectAt(i)) {
+        merged.add(Map<String, dynamic>.from(_questions[i]));
+      } else {
+        if (genI < gen.length) {
+          merged.add(Map<String, dynamic>.from(gen[genI]));
+          genI++;
+        } else {
+          merged.add(Map<String, dynamic>.from(_questions[i]));
+        }
+      }
+    }
+    while (genI < gen.length) {
+      merged.add(Map<String, dynamic>.from(gen[genI]));
+      genI++;
+    }
+    return merged;
+  }
+
+  Future<void> _practiceSimilarQuestions() async {
+    final incorrectMaps = _incorrectQuestionMaps();
+    if (incorrectMaps.isEmpty) return;
+
+    final lesson = TopicsData.getLessonByTitle(widget.lessonName);
+    final lessonId = lesson?.id ?? widget.lessonName;
+    final lessonContext = [
+      'Lesson: ${widget.lessonName}',
+      if (lesson != null) TopicsData.getSubtopicsForLesson(lesson.id).join(', '),
+    ].join('\n');
+
+    setState(() => _aiQuizLoading = true);
+    final result = await AiQuizService.generateQuiz(
+      lessonId: lessonId,
+      lessonContext: lessonContext,
+      incorrectQuestions: incorrectMaps,
+    );
+    if (!mounted) return;
+    setState(() => _aiQuizLoading = false);
+
+    final raw = result['questions'];
+    final rawList = <Map<String, dynamic>>[];
+    if (raw is List) {
+      for (final e in raw) {
+        if (e is Map) {
+          rawList.add(Map<String, dynamic>.from(e));
+        }
+      }
+    }
+
+    final incorrectCount = _incorrectQuestionIndices().length;
+    final fallback = result['fallback'] == true;
+    final List<Map<String, dynamic>> gen =
+        fallback ? rawList : AiQuizService.normalizeMultipleChoice(rawList);
+
+    if (gen.length < incorrectCount) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['error']?.toString() ?? 'Could not load practice questions'),
+        ),
+      );
+      return;
+    }
+
+    final merged = _mergeWithGenerated(gen);
+    if (!mounted) return;
+    setState(() {
+      _questions = merged;
+      _currentQuestion = 0;
+      _score = 0;
+      _exerciseCompleted = false;
+      _userAnswers = List.filled(_questions.length, null);
+      _answeredQuestions = List.filled(_questions.length, false);
+      _matchingSelections.clear();
+      _sequenceFilledBlanks.clear();
+      _dragItemsInitialized = false;
+      _initQuestion();
+    });
   }
 
   String _getQuestionTypeTitle(String type) {
@@ -11844,36 +11993,75 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       appBar: AppBar(backgroundColor: Colors.white,
         leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)),
         title: const Text('Exercise Complete'), centerTitle: true, elevation: 0),
-      body: Center(child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text(emoji, style: const TextStyle(fontSize: 80)),
-        const SizedBox(height: 20),
-        Text(message, style: TextStyle(fontSize: sw > 600 ? 32 : 28, fontWeight: FontWeight.bold, color: color)),
-        const SizedBox(height: 30),
-        Container(padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: color, width: 3)),
-          child: Column(children: [
-            const Text('Your Score', style: TextStyle(fontSize: 18)),
-            const SizedBox(height: 10),
-            Text('$_score/${_questions.length}', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text('$percentage%', style: const TextStyle(fontSize: 28)),
-          ])),
-        const SizedBox(height: 40),
-        Row(children: [
-          Expanded(child: ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: const BorderSide(color: Colors.black, width: 1.5)),
-              padding: const EdgeInsets.symmetric(vertical: 16)),
-            onPressed: _restartExercise, child: const Text('Try Again', style: TextStyle(fontSize: 16)))),
-          const SizedBox(width: 16),
-          Expanded(child: ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: const BorderSide(color: Colors.black, width: 1.5)),
-              padding: const EdgeInsets.symmetric(vertical: 16)),
-            onPressed: () => Navigator.pop(context), child: const Text('Back to Lessons', style: TextStyle(fontSize: 16)))),
-        ]),
-      ]))),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(emoji, style: const TextStyle(fontSize: 80)),
+            const SizedBox(height: 20),
+            Text(message, style: TextStyle(fontSize: sw > 600 ? 32 : 28, fontWeight: FontWeight.bold, color: color)),
+            const SizedBox(height: 30),
+            Container(padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: color, width: 3)),
+              child: Column(children: [
+                const Text('Your Score', style: TextStyle(fontSize: 18)),
+                const SizedBox(height: 10),
+                Text('$_score/${_questions.length}', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Text('$percentage%', style: const TextStyle(fontSize: 28)),
+              ])),
+            if (percentage < 75) ...[
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'Want more practice? Tap below for similar questions based on what you missed.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: sw > 600 ? 15 : 13, color: Colors.black87),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple.shade100,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      side: BorderSide(color: Colors.deepPurple.shade400, width: 1.5),
+                    ),
+                  ),
+                  onPressed: _aiQuizLoading ? null : _practiceSimilarQuestions,
+                  child: _aiQuizLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Practice similar questions', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+            ],
+            const SizedBox(height: 40),
+            Row(children: [
+              Expanded(child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: const BorderSide(color: Colors.black, width: 1.5)),
+                  padding: const EdgeInsets.symmetric(vertical: 16)),
+                onPressed: _restartExercise, child: const Text('Try Again', style: TextStyle(fontSize: 16)))),
+              const SizedBox(width: 16),
+              Expanded(child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFF59D), foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: const BorderSide(color: Colors.black, width: 1.5)),
+                  padding: const EdgeInsets.symmetric(vertical: 16)),
+                onPressed: () => Navigator.pop(context), child: const Text('Back to Lessons', style: TextStyle(fontSize: 16)))),
+            ]),
+          ]),
+        ),
+      ),
     );
   }
 }

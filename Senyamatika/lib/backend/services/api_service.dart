@@ -3,9 +3,27 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 class ApiService {
-  // Base URL configuration - Railway deployed backend
+  static const String _productionBaseUrl =
+      'https://senyamtikaback-production.up.railway.app/api';
+
+  /// In **release** builds, always uses Railway.
+  ///
+  /// In **debug/profile**, uses (in order):
+  /// 1. `--dart-define=API_BASE_URL=http://YOUR_IP:3001/api` (needed for a physical phone)
+  /// 2. Android emulator: `http://10.0.2.2:3001/api`
+  /// 3. iOS simulator / desktop / web: `http://127.0.0.1:3001/api`
   static String get baseUrl {
-    return 'https://senyamtikaback-production.up.railway.app/api';
+    if (kReleaseMode) {
+      return _productionBaseUrl;
+    }
+    const fromEnv = String.fromEnvironment('API_BASE_URL');
+    if (fromEnv.isNotEmpty) {
+      return fromEnv;
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:3001/api';
+    }
+    return 'http://127.0.0.1:3001/api';
   }
 
   static String? _token;
