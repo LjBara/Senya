@@ -509,9 +509,10 @@ class ExerciseController extends ChangeNotifier {
         merged = _mergeWithGenerated(generated, wrongIndices);
       }
       _questions = merged;
-      _currentQuestion = wrongIndices.isEmpty
-          ? 0
-          : wrongIndices.first.clamp(0, merged.length - 1);
+      // Always start at the first question after a remediation load. Using the
+      // first incorrect index used to jump the user to the "middle" of the quiz
+      // when earlier items were answered correctly on the prior attempt.
+      _currentQuestion = 0;
       _score = 0;
       _exerciseCompleted = false;
       _userAnswers = List.filled(_questions.length, null);

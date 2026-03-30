@@ -8265,6 +8265,11 @@ class ProgressManager {
   factory ProgressManager() => _instance;
   ProgressManager._internal();
 
+  /// Slots counted toward "X/Y exercises" on the progress page. Each lesson has
+  /// one comprehensive exercise; every attempt (static + AI retakes) is stored
+  /// as a separate row, so the numerator is capped to this value.
+  static const int kExerciseSlotsPerLesson = 1;
+
   Map<String, Map<String, dynamic>> _progressData = {};
   String? _currentUserId;
   bool _isInitialized = false;
@@ -8568,7 +8573,7 @@ class ProgressManager {
     final isCompleted = isLessonCompleted(lessonName);
     
     final videoCount = VideoDataManager.getVideoCount(lessonName);
-    final exerciseCount = 1;
+    final exerciseCount = kExerciseSlotsPerLesson;
     final subtopicCount = TopicsData.getSubtopicCountForLesson(lessonName);
     
     final lessonExercises = getExerciseScoresByLesson(lessonName);
@@ -8711,9 +8716,10 @@ class ProgressManager {
 
   int getCompletedExercisesForLesson(String lessonName) {
     initialize();
-    return _progressData['exercises']!.values.where((exercise) {
+    final raw = _progressData['exercises']!.values.where((exercise) {
       return exercise['lesson_name'] == lessonName;
     }).length;
+    return min(raw, kExerciseSlotsPerLesson);
   }
 
   /// Returns [true] if at least one recorded attempt for [lessonName] has
