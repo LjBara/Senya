@@ -1,6 +1,7 @@
+import './env.js';
+import { getResolvedGeminiModel } from './ai/geminiClient.js';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import teacherRoutes from './routes/teacher.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import studentRoutes from './routes/student.routes.js';
@@ -8,8 +9,6 @@ import lessonRoutes from './routes/lesson.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import reportRoutes from './routes/report.routes.js';
 import aiRoutes from './routes/ai.routes.js';
-
-dotenv.config();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -34,25 +33,6 @@ app.use(cors({
     const isAllowed = allowedOrigins.some(allowed => 
       allowed instanceof RegExp ? allowed.test(origin) : allowed === origin
     );
-    // #region agent log
-    if (origin && !isAllowed) {
-      fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Debug-Session-Id': '78613b',
-        },
-        body: JSON.stringify({
-          sessionId: '78613b',
-          hypothesisId: 'H1',
-          location: 'server.ts:cors',
-          message: 'origin rejected by cors',
-          data: { origin },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
     callback(null, isAllowed);
   },
   credentials: true
@@ -101,6 +81,11 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📱 Mobile access: http://192.168.1.138:${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  const gk = process.env.GEMINI_API_KEY?.trim();
+  const gm = getResolvedGeminiModel();
+  console.log(
+    `🤖 Gemini: ${gk ? `API key loaded (${gk.length} chars)` : 'API key missing'}, model ${gm}`
+  );
 });
 
 export default app;

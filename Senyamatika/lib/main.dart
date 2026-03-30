@@ -11100,7 +11100,7 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       'objects': ['🍎','🍎','🍎','🍎','🍎','🍎','🍎','🍎'],
       'objectCount': 8,
       'correctAnswer': 3,
-      'options': [5, 6, 7, 8, 9],
+      'options': ['5', '6', '7', '8', '9'],
       'explanation': 'There are 8 apples. Count them: 1,2,3,4,5,6,7,8.',
     },
     {
@@ -11110,7 +11110,7 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       'objects': ['⭐','⭐','⭐','⭐','⭐','⭐','⭐','⭐','⭐','⭐','⭐','⭐'],
       'objectCount': 12,
       'correctAnswer': 2,
-      'options': [10, 11, 12, 13, 14],
+      'options': ['10', '11', '12', '13', '14'],
       'explanation': 'There are 12 stars.',
     },
     {
@@ -11118,7 +11118,7 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       'type': 'multiple_choice',
       'question': 'What number comes after 15 when counting by ones?',
       'correctAnswer': 2,
-      'options': [14, 15, 16, 17, 18],
+      'options': ['14', '15', '16', '17', '18'],
       'explanation': 'After 15 comes 16.',
     },
     {
@@ -11403,11 +11403,19 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
     }
   }
 
+  /// AI / JSON may decode numeric indices as [double]; user taps use [int].
+  int _mcCorrectIndex(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v.trim()) ?? -1;
+    return -1;
+  }
+
   bool _isAnswerCorrect(Map<String, dynamic> question) {
     final answer = _userAnswers[_currentQuestion];
     if (answer == null) return false;
     if (question['type'] == 'multiple_choice' || question['type'] == 'circle_answer') {
-      return answer == question['correctAnswer'];
+      return _mcCorrectIndex(answer) == _mcCorrectIndex(question['correctAnswer']);
     } else if (question['type'] == 'fill_blank' || question['type'] == 'write_number') {
       return answer.toString().trim() == question['correctAnswer'].toString();
     } else if (question['type'] == 'true_false') {
@@ -11426,7 +11434,7 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
     final answer = _userAnswers[index];
     if (answer == null) return false;
     if (question['type'] == 'multiple_choice' || question['type'] == 'circle_answer') {
-      return answer == question['correctAnswer'];
+      return _mcCorrectIndex(answer) == _mcCorrectIndex(question['correctAnswer']);
     } else if (question['type'] == 'fill_blank' || question['type'] == 'write_number') {
       return answer.toString().trim() == question['correctAnswer'].toString();
     } else if (question['type'] == 'true_false') {
@@ -11479,16 +11487,22 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
 
     final lesson = TopicsData.getLessonByTitle(widget.lessonName);
     final lessonId = lesson?.id ?? widget.lessonName;
-    final lessonContext = [
-      'Lesson: ${widget.lessonName}',
-      if (lesson != null) TopicsData.getSubtopicsForLesson(lesson.id).join(', '),
-    ].join('\n');
+    final subtopics = lesson != null
+        ? TopicsData.getSubtopicsForLesson(lesson.id)
+        : <String>[];
+    final lessonContextMap = AiQuizService.buildLessonContextMap(
+      lessonTitle: widget.lessonName,
+      topicId: lesson?.topicId,
+      subtopics: subtopics,
+    );
+    final slots = AiQuizService.buildRemediationSlots(incorrectMaps);
 
     setState(() => _aiQuizLoading = true);
-    final result = await AiQuizService.generateQuiz(
+    final result = await AiQuizService.generateRemediationQuestions(
       lessonId: lessonId,
-      lessonContext: lessonContext,
-      incorrectQuestions: incorrectMaps,
+      lessonContext: lessonContextMap,
+      remediationSlots: slots,
+      originalIncorrectQuestions: incorrectMaps,
     );
     if (!mounted) return;
     setState(() => _aiQuizLoading = false);
@@ -11503,10 +11517,9 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       }
     }
 
-    final incorrectCount = _incorrectQuestionIndices().length;
-    final fallback = result['fallback'] == true;
-    final List<Map<String, dynamic>> gen =
-        fallback ? rawList : AiQuizService.normalizeMultipleChoice(rawList);
+    final wrongIndices = _incorrectQuestionIndices();
+    final incorrectCount = wrongIndices.length;
+    final List<Map<String, dynamic>> gen = rawList;
 
     if (gen.length < incorrectCount) {
       if (!mounted) return;
@@ -11518,11 +11531,18 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       return;
     }
 
+    // Indices of missed items *before* reset — merge only replaces those; others stay as seed.
+    final firstPracticeIndex =
+        wrongIndices.isEmpty ? 0 : wrongIndices.first.clamp(0, _questions.length - 1);
+
     final merged = _mergeWithGenerated(gen);
     if (!mounted) return;
+    final startIndex =
+        firstPracticeIndex < merged.length ? firstPracticeIndex : 0;
+
     setState(() {
       _questions = merged;
-      _currentQuestion = 0;
+      _currentQuestion = startIndex;
       _score = 0;
       _exerciseCompleted = false;
       _userAnswers = List.filled(_questions.length, null);
@@ -11532,6 +11552,22 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       _dragItemsInitialized = false;
       _initQuestion();
     });
+
+    if (!mounted) return;
+    final fallback = result['fallback'] == true;
+    if (!fallback && wrongIndices.isNotEmpty) {
+      final unchanged = merged.length - wrongIndices.length;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            unchanged > 0
+                ? 'Practice: ${wrongIndices.length} AI question(s). $unchanged kept (you had those correct).'
+                : 'Practice: all questions refreshed with AI.',
+          ),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 
   String _getQuestionTypeTitle(String type) {
@@ -11717,7 +11753,7 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
         itemBuilder: (context, index) {
           final isAnswered = _answeredQuestions[_currentQuestion];
           final isSelected = _userAnswers[_currentQuestion] == index;
-          final isCorrect = index == (question['correctAnswer'] as int);
+          final isCorrect = index == _mcCorrectIndex(question['correctAnswer']);
           Color c = Colors.white;
           if (isAnswered) {
             if (isSelected && isCorrect) c = Colors.green;
@@ -11929,7 +11965,7 @@ class _WholeNumbersExerciseScreenState extends State<WholeNumbersExerciseScreen>
       itemBuilder: (context, index) {
         final isAnswered = _answeredQuestions[_currentQuestion];
         final isSelected = _userAnswers[_currentQuestion] == index;
-        final isCorrect = index == (question['correctAnswer'] as int);
+        final isCorrect = index == _mcCorrectIndex(question['correctAnswer']);
         Color c = Colors.white;
         if (isAnswered) {
           if (isSelected && isCorrect) c = Colors.green;
