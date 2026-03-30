@@ -1,3 +1,8 @@
+// DEAD CODE: QuizAttemptModel is only referenced in mock_data_service.dart.
+// It is NOT used in the live exercise path — scores are recorded via
+// ProgressManager.recordExerciseScore() instead.
+// Do not delete until mock_data_service.dart is also removed.
+
 /// Quiz attempt model for tracking quiz results
 class QuizAttemptModel {
   final String userId;

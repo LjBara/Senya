@@ -4,6 +4,9 @@ import { generateQuestionsBodySchema } from '../ai/remediationSlots.zod.js';
 
 const router = express.Router();
 
+// @deprecated Use POST /ai/generate-questions instead. This endpoint accepts
+// a plain-string lessonContext and is kept only for backward-compatible clients.
+// New exercise integrations should use the structured /generate-questions route.
 router.post('/generate-quiz', async (req, res) => {
   try {
     const { lessonId, lessonContext, incorrectQuestions } = req.body ?? {};
@@ -53,15 +56,9 @@ router.post('/generate-quiz', async (req, res) => {
 });
 
 router.post('/generate-questions', async (req, res) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'df25fd'},body:JSON.stringify({sessionId:'df25fd',runId:'pre-fix',hypothesisId:'H-req',location:'ai.routes.ts:generate-questions:entry',message:'handler entered',data:{hasBody:!!req.body,slotCount:Array.isArray((req.body as any)?.remediationSlots)?(req.body as any).remediationSlots.length:-1},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   try {
     const parsed = generateQuestionsBodySchema.safeParse(req.body ?? {});
     if (!parsed.success) {
-      // #region agent log
-      fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'df25fd'},body:JSON.stringify({sessionId:'df25fd',runId:'pre-fix',hypothesisId:'H-zod',location:'ai.routes.ts:zod-fail',message:'body validation failed',data:{issues:parsed.error.issues.slice(0,5).map(i=>({path:i.path.join('.'),msg:i.message}))},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return res.status(400).json({
         success: false,
         error: parsed.error.issues.map((i) => i.message).join('; ') || 'Invalid request body',
@@ -93,9 +90,6 @@ router.post('/generate-questions', async (req, res) => {
       originalIncorrectQuestions: originals,
     });
 
-    // #region agent log
-    fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'df25fd'},body:JSON.stringify({sessionId:'df25fd',runId:'pre-fix',hypothesisId:'H-result',location:'ai.routes.ts:before-json',message:'generation returned',data:{qLen:result.questions.length,fallback:result.fallback,hasError:!!result.error,requestId:result.requestId},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     let payload: Record<string, unknown>;
     try {
       payload = {
@@ -107,19 +101,11 @@ router.post('/generate-questions', async (req, res) => {
       };
       JSON.stringify(payload);
     } catch (serErr) {
-      // #region agent log
-      fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'df25fd'},body:JSON.stringify({sessionId:'df25fd',runId:'pre-fix',hypothesisId:'H-json',location:'ai.routes.ts:serialize-fail',message:'JSON.stringify(payload) failed',data:{err:String(serErr)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       throw serErr;
     }
     return res.json(payload);
   } catch (e) {
-    const errMsg = e instanceof Error ? e.message : String(e);
-    const errStack = e instanceof Error ? e.stack?.slice(0, 800) : '';
     console.error('POST /generate-questions:', e);
-    // #region agent log
-    fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'df25fd'},body:JSON.stringify({sessionId:'df25fd',runId:'pre-fix',hypothesisId:'H-500',location:'ai.routes.ts:catch',message:'uncaught exception',data:{errMsg,errStack},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return res.status(500).json({
       success: false,
       error: 'Failed to generate questions',

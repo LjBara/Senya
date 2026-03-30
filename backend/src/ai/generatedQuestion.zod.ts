@@ -301,9 +301,6 @@ export function validateOrderedQuestions(
   if (questionsRaw === null || typeof questionsRaw !== 'object') return null;
   const arr = (questionsRaw as Record<string, unknown>).questions;
   if (!Array.isArray(arr) || arr.length !== slots.length) {
-    // #region agent log
-    fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'df25fd'},body:JSON.stringify({sessionId:'df25fd',runId:'val',hypothesisId:'H-val-len',location:'generatedQuestion.zod.ts:validateOrderedQuestions',message:'questions array length mismatch',data:{arrLen:Array.isArray(arr)?arr.length:-1,slotLen:slots.length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return null;
   }
 
@@ -311,11 +308,6 @@ export function validateOrderedQuestions(
   for (let i = 0; i < slots.length; i++) {
     const q = parseQuestionForSlot(slots[i], arr[i], i);
     if (!q) {
-      // #region agent log
-      const item = arr[i];
-      const t = item !== null && typeof item === 'object' ? (item as Record<string, unknown>).type : null;
-      fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'df25fd'},body:JSON.stringify({sessionId:'df25fd',runId:'val',hypothesisId:'H-val-slot',location:'generatedQuestion.zod.ts:validateOrderedQuestions',message:'parse failed for slot',data:{index:i,expectedType:slots[i].type,rawType:t},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return null;
     }
     out.push(q);

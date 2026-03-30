@@ -88,9 +88,6 @@ export function resolveLessonRecord(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn('[lessonResolve] resolveLessonRecord: DB unavailable or schema missing; using client context only.', msg);
-    // #region agent log
-    fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'df25fd'},body:JSON.stringify({sessionId:'df25fd',runId:'post-fix',hypothesisId:'H-resolve-skip',location:'lessonResolve.service.ts:catch',message:'lesson DB lookup skipped',data:{errMsg:msg.slice(0,200)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
   }
 
   return null;

@@ -60,17 +60,10 @@ export async function runRemediationGeneration(params: {
 }): Promise<RemediationResult> {
   const { requestId, lessonIdInput, clientContext, slots, originalIncorrectQuestions, log } = params;
 
-  // #region agent log
-  fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'df25fd'},body:JSON.stringify({sessionId:'df25fd',runId:'pre-fix',hypothesisId:'H-pipe',location:'aiQuestionGeneration.service.ts:runRemediation:entry',message:'pipeline start',data:{requestId,lessonIdInput,slotCount:slots.length,origLen:originalIncorrectQuestions?.length??-1},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
   const resolved = resolveLessonRecord(lessonIdInput, {
     lessonTitle: clientContext.lessonTitle,
     subtopics: clientContext.subtopics,
   });
-  // #region agent log
-  fetch('http://127.0.0.1:7383/ingest/e03b75a4-c4bb-47a1-9e2e-f8306fa1b631',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'df25fd'},body:JSON.stringify({sessionId:'df25fd',runId:'pre-fix',hypothesisId:'H-DB',location:'aiQuestionGeneration.service.ts:after-resolve',message:'lesson resolved',data:{resolved:!!resolved,resolvedId:resolved?.id??null},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   if (!resolved) {
     log.warn('lesson not found in DB; using client context only', { lessonIdInput });
   }
