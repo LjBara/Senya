@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcrypt';
+import { CLIENT_LESSON_ID_TO_DB } from '../config/lessonAliases.js';
 import db from './connection.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -124,8 +125,10 @@ const lessons = [
 ];
 
 const lessonIds: string[] = [];
-lessons.forEach(lesson => {
-  const lessonId = generateId();
+lessons.forEach((lesson, index) => {
+  const stableId =
+    index === 0 && lesson.title === 'Whole Numbers' ? CLIENT_LESSON_ID_TO_DB['lesson1_1'] : undefined;
+  const lessonId = stableId ?? generateId();
   lessonIds.push(lessonId);
   
   db.prepare(`

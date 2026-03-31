@@ -1,10 +1,8 @@
+import '../env.js';
 import initSqlJs, { Database } from 'sql.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +14,23 @@ console.log('📁 Database path:', dbPath);
 
 let db: Database;
 let SQL: any;
+
+/** Apply schema-sqlite.sql so existing DB files gain new tables (idempotent IF NOT EXISTS). */
+function ensureSchemaFromFile(): void {
+  const coLocated = path.join(__dirname, 'schema-sqlite.sql');
+  const fromSrc = path.resolve(__dirname, '../../src/db/schema-sqlite.sql');
+  const schemaPath = fs.existsSync(coLocated) ? coLocated : fromSrc;
+  if (!fs.existsSync(schemaPath)) {
+    console.warn(
+      '⚠️ schema-sqlite.sql not found; skipping auto-schema. Run: npm run db:init'
+    );
+    return;
+  }
+  const schema = fs.readFileSync(schemaPath, 'utf8');
+  db.exec(schema);
+  saveDatabase();
+  console.log('✅ SQLite schema ensured (CREATE IF NOT EXISTS)');
+}
 
 // Initialize SQLite database
 async function initDatabase() {
@@ -30,7 +45,8 @@ async function initDatabase() {
     db = new SQL.Database();
     console.log('✅ New SQLite database created');
   }
-  
+
+  ensureSchemaFromFile();
   return db;
 }
 

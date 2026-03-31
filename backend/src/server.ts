@@ -1,14 +1,14 @@
+import './env.js';
+import { getResolvedGeminiModel } from './ai/geminiClient.js';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import teacherRoutes from './routes/teacher.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import studentRoutes from './routes/student.routes.js';
 import lessonRoutes from './routes/lesson.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import reportRoutes from './routes/report.routes.js';
-
-dotenv.config();
+import aiRoutes from './routes/ai.routes.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -19,8 +19,10 @@ app.use(cors({
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
-    // Allow localhost and local network IPs
+    // Allow localhost and local network IPs (any port for Flutter web / Vite / etc.)
     const allowedOrigins = [
+      /^http:\/\/localhost(:\d+)?$/,
+      /^http:\/\/127\.0\.0\.1(:\d+)?$/,
       'http://localhost:5173',
       'http://localhost:3000',
       'http://127.0.0.1:5173',
@@ -31,7 +33,6 @@ app.use(cors({
     const isAllowed = allowedOrigins.some(allowed => 
       allowed instanceof RegExp ? allowed.test(origin) : allowed === origin
     );
-    
     callback(null, isAllowed);
   },
   credentials: true
@@ -57,6 +58,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/lessons', lessonRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -79,6 +81,11 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📱 Mobile access: http://192.168.1.138:${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  const gk = process.env.GEMINI_API_KEY?.trim();
+  const gm = getResolvedGeminiModel();
+  console.log(
+    `🤖 Gemini: ${gk ? `API key loaded (${gk.length} chars)` : 'API key missing'}, model ${gm}`
+  );
 });
 
 export default app;
