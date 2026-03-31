@@ -15,7 +15,6 @@ import 'package:senyamatika_math_app/backend/services/database_seeder.dart';
 import 'package:senyamatika_math_app/backend/services/sign_language_service.dart';
 import 'package:senyamatika_math_app/backend/services/user_provider.dart' as backend;
 import 'package:senyamatika_math_app/backend/services/api_service.dart';
-import 'package:senyamatika_math_app/backend/services/dev_student_bootstrap.dart';
 import 'package:senyamatika_math_app/backend/services/data_sync_service.dart';
 
 // Exercise feature module
@@ -192,31 +191,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _navigateAfterSplash() async {
     await Future.delayed(const Duration(milliseconds: 2000));
-    if (!mounted) return;
-
-    final devUser = await DevStudentBootstrap.ensureDebugStudent();
-    if (devUser != null) {
-      UserProvider.setUser(UserData(
-        name: devUser.name,
-        email: devUser.email,
-        school: devUser.school,
-        section: devUser.section,
-      ));
-      progressManager.setCurrentUser(devUser.uid);
-      ApiService.setStudentId(devUser.uid);
-      if (!mounted) return;
-      try {
-        await Provider.of<backend.UserProvider>(context, listen: false)
-            .loadUserData(devUser.uid);
-      } catch (_) {}
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const DashboardScreen()),
-      );
-      return;
-    }
-
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
