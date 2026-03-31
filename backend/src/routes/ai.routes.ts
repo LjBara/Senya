@@ -1,6 +1,8 @@
 import express from 'express';
 import { generateQuizReplacements, generateQuestionsFromBody } from '../services/aiQuestionGeneration.service.js';
 import { generateQuestionsBodySchema } from '../ai/remediationSlots.zod.js';
+import { exerciseSummaryBodySchema } from '../ai/exerciseSummary.zod.js';
+import { runExerciseSummaryGeneration } from '../services/exerciseSummary.service.js';
 
 const router = express.Router();
 
@@ -110,6 +112,43 @@ router.post('/generate-questions', async (req, res) => {
       success: false,
       error: 'Failed to generate questions',
       questions: [],
+      requestId: '',
+    });
+  }
+});
+
+router.post('/exercise-summary', async (req, res) => {
+  try {
+    const parsed = exerciseSummaryBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return res.status(400).json({
+        success: false,
+        error: parsed.error.issues.map((i) => i.message).join('; ') || 'Invalid request body',
+        requestId: '',
+      });
+    }
+
+    const result = await runExerciseSummaryGeneration(parsed.data);
+
+    if (result.success) {
+      return res.json({
+        success: true,
+        summary: result.summary,
+        recommendedSubtopics: result.recommendedSubtopics,
+        requestId: result.requestId,
+      });
+    }
+
+    return res.status(200).json({
+      success: false,
+      error: result.error,
+      requestId: result.requestId,
+    });
+  } catch (e) {
+    console.error('POST /exercise-summary:', e);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to generate exercise summary',
       requestId: '',
     });
   }

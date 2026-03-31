@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'api_service.dart';
+import 'ai_backend_client.dart';
 
 class AiQuizService {
   // Types the backend `/ai/generate-questions` schema accepts directly.
@@ -79,20 +78,17 @@ class AiQuizService {
     required List<Map<String, dynamic>> originalIncorrectQuestions,
   }) async {
     try {
-      final uri = Uri.parse('${ApiService.baseUrl}/ai/generate-questions');
-      final response = await http
-          .post(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'kind': 'remediation',
-              'lessonId': lessonId,
-              'lessonContext': lessonContext,
-              'remediationSlots': remediationSlots,
-              'originalIncorrectQuestions': originalIncorrectQuestions,
-            }),
-          )
-          .timeout(const Duration(seconds: 120));
+      final response = await AiBackendClient.postJson(
+        '/ai/generate-questions',
+        body: {
+          'kind': 'remediation',
+          'lessonId': lessonId,
+          'lessonContext': lessonContext,
+          'remediationSlots': remediationSlots,
+          'originalIncorrectQuestions': originalIncorrectQuestions,
+        },
+        timeout: const Duration(seconds: 120),
+      );
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       if (response.statusCode != 200) {

@@ -8332,6 +8332,7 @@ class ProgressManager {
       'subtopic_completion': {},
       'lesson_completion': {},
       'topic_completion': {},
+      'lesson_exercise_insights': <String, Map<String, dynamic>>{},
       'topic_unlock': {
         'Number Values': {'unlocked': true}
       },
@@ -8712,6 +8713,58 @@ class ProgressManager {
     exercises.sort((a, b) => b['completed_at'].compareTo(a['completed_at']));
     
     return exercises.cast<Map<String, dynamic>>();
+  }
+
+  void _ensureLessonExerciseInsightsBucket() {
+    initialize();
+    if (!_progressData.containsKey('lesson_exercise_insights')) {
+      _progressData['lesson_exercise_insights'] =
+          <String, Map<String, dynamic>>{};
+    }
+  }
+
+  /// Stores last AI exercise recap for My Progress lesson card "Insights".
+  void saveLessonExerciseInsights(
+    List<String> lessonNames, {
+    required String summary,
+    required List<String> recommendedSubtopics,
+  }) {
+    _ensureLessonExerciseInsightsBucket();
+    final now = DateTime.now().toIso8601String();
+    final unique = lessonNames
+        .map((n) => n.trim())
+        .where((n) => n.isNotEmpty)
+        .toSet();
+    for (final name in unique) {
+      _progressData['lesson_exercise_insights']![name] = {
+        'summary': summary,
+        'recommended_subtopics': List<String>.from(recommendedSubtopics),
+        'saved_at': now,
+      };
+    }
+    _saveProgressToStorage();
+  }
+
+  /// Latest saved recap for [lessonName], or null if none / empty.
+  Map<String, dynamic>? getLessonExerciseInsights(String lessonName) {
+    _ensureLessonExerciseInsightsBucket();
+    final raw = _progressData['lesson_exercise_insights']![lessonName];
+    if (raw == null || raw is! Map) return null;
+    final map = Map<String, dynamic>.from(raw);
+    final s = map['summary']?.toString().trim() ?? '';
+    final topicsRaw = map['recommended_subtopics'];
+    final topics = <String>[];
+    if (topicsRaw is List) {
+      for (final e in topicsRaw) {
+        if (e != null) topics.add(e.toString());
+      }
+    }
+    if (s.isEmpty && topics.isEmpty) return null;
+    return {
+      ...map,
+      'summary': s,
+      'recommended_subtopics': topics,
+    };
   }
 
   int getCompletedExercisesForLesson(String lessonName) {
@@ -10788,6 +10841,12 @@ class WholeNumbersExerciseScreen extends StatelessWidget {
       ),
       onRecordScore: (lesson, lang, idx, type, s, t, c, pct) =>
           progressManager.recordExerciseScore(lesson, lang, idx, type, s, t, c, pct),
+      onExerciseInsightsSaved: (names, summary, topics) =>
+          progressManager.saveLessonExerciseInsights(
+            names,
+            summary: summary,
+            recommendedSubtopics: topics,
+          ),
     );
   }
 }
@@ -10831,6 +10890,12 @@ class ComparisonComprehensiveExerciseScreen extends StatelessWidget {
       ),
       onRecordScore: (lesson, lang, idx, type, s, t, c, pct) =>
           progressManager.recordExerciseScore(lesson, lang, idx, type, s, t, c, pct),
+      onExerciseInsightsSaved: (names, summary, topics) =>
+          progressManager.saveLessonExerciseInsights(
+            names,
+            summary: summary,
+            recommendedSubtopics: topics,
+          ),
     );
   }
 }
@@ -12891,6 +12956,12 @@ class FundamentalOperationsExerciseScreen extends StatelessWidget {
       ),
       onRecordScore: (lesson, lang, idx, type, s, t, c, pct) =>
           progressManager.recordExerciseScore(lesson, lang, idx, type, s, t, c, pct),
+      onExerciseInsightsSaved: (names, summary, topics) =>
+          progressManager.saveLessonExerciseInsights(
+            names,
+            summary: summary,
+            recommendedSubtopics: topics,
+          ),
     );
   }
 }
@@ -14301,6 +14372,12 @@ class FractionExerciseScreen extends StatelessWidget {
       ),
       onRecordScore: (lesson, lang, idx, type, s, t, c, pct) =>
           progressManager.recordExerciseScore(lesson, lang, idx, type, s, t, c, pct),
+      onExerciseInsightsSaved: (names, summary, topics) =>
+          progressManager.saveLessonExerciseInsights(
+            names,
+            summary: summary,
+            recommendedSubtopics: topics,
+          ),
     );
   }
 }
@@ -15817,6 +15894,12 @@ class DecimalExerciseScreen extends StatelessWidget {
       ),
       onRecordScore: (lesson, lang, idx, type, s, t, c, pct) =>
           progressManager.recordExerciseScore(lesson, lang, subLessonIndex, type, s, t, c, pct),
+      onExerciseInsightsSaved: (names, summary, topics) =>
+          progressManager.saveLessonExerciseInsights(
+            names,
+            summary: summary,
+            recommendedSubtopics: topics,
+          ),
     );
   }
 }
@@ -17357,6 +17440,12 @@ class PercentageExerciseScreen extends StatelessWidget {
       ),
       onRecordScore: (lesson, lang, idx, type, s, t, c, pct) =>
           progressManager.recordExerciseScore(lesson, lang, subLessonIndex, type, s, t, c, pct),
+      onExerciseInsightsSaved: (names, summary, topics) =>
+          progressManager.saveLessonExerciseInsights(
+            names,
+            summary: summary,
+            recommendedSubtopics: topics,
+          ),
     );
   }
 }
@@ -18908,6 +18997,12 @@ class AlgebraExerciseScreen extends StatelessWidget {
       ),
       onRecordScore: (lesson, lang, idx, type, s, t, c, pct) =>
           progressManager.recordExerciseScore(lesson, lang, subLessonIndex, type, s, t, c, pct),
+      onExerciseInsightsSaved: (names, summary, topics) =>
+          progressManager.saveLessonExerciseInsights(
+            names,
+            summary: summary,
+            recommendedSubtopics: topics,
+          ),
     );
   }
 }
@@ -19045,6 +19140,8 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
       'best_score':             progressData['best_score'],
       'total_attempts':         progressData['total_attempts'],
       'exerciseScores':         exerciseScores,
+      'exerciseInsights':
+          progressManager.getLessonExerciseInsights(lessonName),
     };
   }
 
@@ -19831,6 +19928,17 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                         lessonColor,
                       )),
 
+                  // AI recap (last successful exercise summary)
+                  if (pd['exerciseInsights'] != null) ...[
+                    const SizedBox(height: 16),
+                    _buildLessonInsightsSection(
+                      Map<String, dynamic>.from(
+                        pd['exerciseInsights']! as Map,
+                      ),
+                      lessonColor,
+                    ),
+                  ],
+
                   // Recent exercise scores
                   if (exScores.isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -20051,6 +20159,120 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  // ── AI exercise recap (My Progress) ───────────────────────
+  Widget _buildLessonInsightsSection(
+    Map<String, dynamic> insights,
+    Color lessonColor,
+  ) {
+    final summary = insights['summary'] as String? ?? '';
+    final topicsRaw = insights['recommended_subtopics'];
+    final topics = <String>[];
+    if (topicsRaw is List) {
+      for (final e in topicsRaw) {
+        final t = e?.toString().trim();
+        if (t != null && t.isNotEmpty) topics.add(t);
+      }
+    }
+    final savedAt = insights['saved_at'] as String?;
+    DateTime? savedParsed;
+    if (savedAt != null && savedAt.isNotEmpty) {
+      try {
+        savedParsed = DateTime.parse(savedAt);
+      } catch (_) {}
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.lightbulb_outline, size: 14, color: lessonColor),
+              const SizedBox(width: 6),
+              Text(
+                'Insights',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (summary.isNotEmpty)
+                Text(
+                  summary,
+                  style: const TextStyle(fontSize: 13, height: 1.35),
+                ),
+              if (topics.isNotEmpty) ...[
+                if (summary.isNotEmpty) const SizedBox(height: 8),
+                Text(
+                  'Suggested review',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: lessonColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                ...topics.map(
+                  (t) => Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('• ',
+                            style: TextStyle(fontSize: 12, color: lessonColor)),
+                        Expanded(
+                          child: Text(t, style: const TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              if (savedParsed != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.calendar_today,
+                        size: 10, color: Colors.grey.shade500),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatDate(savedParsed),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 

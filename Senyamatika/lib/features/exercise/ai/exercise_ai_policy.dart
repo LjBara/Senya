@@ -5,6 +5,13 @@
 /// reusable from any call site.
 library exercise_ai_policy;
 
+/// Persists AI exercise recap text for dashboard "Insights" (e.g. per lesson in Hive).
+typedef ExerciseInsightsSavedCallback = void Function(
+  List<String> lessonNames,
+  String summary,
+  List<String> recommendedSubtopics,
+);
+
 /// Returns [true] when the user should be auto-redirected to an AI quiz on
 /// exercise entry: they have attempted before but have never passed.
 bool shouldAutoStartRemediation({
@@ -57,4 +64,29 @@ Map<String, dynamic> buildAiLessonContext({
     if (topicId != null && topicId.isNotEmpty) 'topicId': topicId,
     if (topicTitle != null && topicTitle.isNotEmpty) 'topicTitle': topicTitle,
   };
+}
+
+/// Slim wrong-question rows for `POST /ai/exercise-summary` (max 25 items).
+///
+/// [isAnswerCorrectAt] must use the same correctness rules as the active exercise session.
+List<Map<String, dynamic>> buildWrongQuestionsForExerciseSummary(
+  List<Map<String, dynamic>> questions,
+  bool Function(int index) isAnswerCorrectAt,
+) {
+  final out = <Map<String, dynamic>>[];
+  for (var i = 0; i < questions.length; i++) {
+    if (isAnswerCorrectAt(i)) continue;
+    if (out.length >= 25) break;
+    final q = questions[i];
+    final rawType = q['type']?.toString() ?? 'unknown';
+    final type = rawType.length > 80 ? rawType.substring(0, 80) : rawType;
+    final question = q['question']?.toString() ?? '';
+    final summary =
+        question.length > 500 ? question.substring(0, 500) : question;
+    out.add({
+      'type': type,
+      'summary': summary.isEmpty ? '(no summary)' : summary,
+    });
+  }
+  return out;
 }

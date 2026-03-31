@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:senyamatika_math_app/features/exercise/ai/exercise_ai_policy.dart';
 import 'package:senyamatika_math_app/features/exercise/controller/exercise_controller.dart';
+import 'package:senyamatika_math_app/features/exercise/widgets/exercise_ai_summary_section.dart';
 
 /// Results screen shown when all questions in the exercise have been answered.
 ///
@@ -10,14 +12,33 @@ import 'package:senyamatika_math_app/features/exercise/controller/exercise_contr
 /// and the score is below the 70% pass threshold, "Try Again" automatically
 /// generates a fresh AI question set via [ExerciseController.retryWithRemediation].
 /// For all other cases "Try Again" performs a plain restart.
+///
+/// Loads an English AI recap via [ExerciseAiSummarySection] using [lessonId]
+/// and [lessonContext] from the parent [ExerciseScreen].
 class ExerciseResultsScreen extends StatelessWidget {
   const ExerciseResultsScreen({
     super.key,
     required this.exerciseTitle,
+    required this.lessonId,
+    required this.lessonContext,
+    required this.lessonNamesForInsights,
+    this.onExerciseInsightsSaved,
     this.onAiError,
   });
 
   final String exerciseTitle;
+
+  /// Resolved lesson id for the AI API (falls back to lesson title when unset).
+  final String lessonId;
+
+  /// Structured context merged with DB subtopics on the server.
+  final Map<String, dynamic> lessonContext;
+
+  /// Lesson title(s) progress is keyed by (e.g. all FO lessons when applicable).
+  final List<String> lessonNamesForInsights;
+
+  /// Persists recap for My Progress lesson card Insights.
+  final ExerciseInsightsSavedCallback? onExerciseInsightsSaved;
 
   /// Called when the AI generation request triggered by "Try Again" fails,
   /// so the parent [ExerciseScreen] can surface a [SnackBar].
@@ -96,7 +117,23 @@ class ExerciseResultsScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 24),
+
+              ExerciseAiSummarySection(
+                lessonId: lessonId,
+                lessonContext: lessonContext,
+                exerciseTitle: exerciseTitle,
+                score: score,
+                totalQuestions: total,
+                wrongQuestions: buildWrongQuestionsForExerciseSummary(
+                  controller.questions,
+                  controller.isAnswerCorrectAt,
+                ),
+                lessonNamesForInsights: lessonNamesForInsights,
+                onInsightsSaved: onExerciseInsightsSaved,
+              ),
+
+              const SizedBox(height: 16),
 
               // Action row
               Row(

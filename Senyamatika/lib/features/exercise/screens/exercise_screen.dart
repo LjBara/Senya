@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:senyamatika_math_app/features/exercise/ai/exercise_ai_policy.dart';
 import 'package:senyamatika_math_app/features/exercise/controller/exercise_controller.dart';
 import 'package:senyamatika_math_app/features/exercise/widgets/exercise_header.dart';
 import 'package:senyamatika_math_app/features/exercise/widgets/question_display.dart';
@@ -46,6 +47,7 @@ class ExerciseScreen extends StatefulWidget {
     this.autoStartRemediation = false,
     this.lessonId,
     this.aiLessonContext,
+    this.onExerciseInsightsSaved,
   });
 
   final String lessonName;
@@ -73,6 +75,9 @@ class ExerciseScreen extends StatefulWidget {
 
   /// Pre-built lesson context map for the AI service.
   final Map<String, dynamic>? aiLessonContext;
+
+  /// When the AI exercise summary loads successfully, persist for dashboard Insights.
+  final ExerciseInsightsSavedCallback? onExerciseInsightsSaved;
 
   @override
   State<ExerciseScreen> createState() => _ExerciseScreenState();
@@ -148,8 +153,17 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
           // Switch to results view once all questions are answered
           if (controller.exerciseCompleted) {
+            final effectiveLessonId = widget.lessonId ?? widget.lessonName;
+            final effectiveContext = widget.aiLessonContext != null
+                ? Map<String, dynamic>.from(widget.aiLessonContext!)
+                : <String, dynamic>{'lessonTitle': widget.lessonName};
             return ExerciseResultsScreen(
               exerciseTitle: widget.title,
+              lessonId: effectiveLessonId,
+              lessonContext: effectiveContext,
+              lessonNamesForInsights:
+                  widget.allLessonNames ?? [widget.lessonName],
+              onExerciseInsightsSaved: widget.onExerciseInsightsSaved,
               onAiError: _showAiError,
             );
           }
